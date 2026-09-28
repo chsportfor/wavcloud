@@ -1,0 +1,22 @@
+import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+
+const syncCheck = spawnSync(process.execPath, ['android-app/tools/sync-web.mjs', '--check'], {
+  cwd: process.cwd(),
+  encoding: 'utf8'
+});
+if (syncCheck.status !== 0) throw new Error(syncCheck.stderr || syncCheck.stdout || 'Web source check failed');
+
+const html = fs.readFileSync('android-app/app/src/main/assets/app.html', 'utf8');
+const startToken = '<script type="module">';
+const endToken = '</script>';
+const start = html.indexOf(startToken);
+const end = html.lastIndexOf(endToken);
+if (start < 0 || end <= start) throw new Error('Bundled module script is missing');
+const source = html.slice(start + startToken.length, end);
+if (!source.includes('WavCloudAndroid.setQueue')) throw new Error('Native bridge was not bundled');
+if (!source.includes('__wavcloudNativeProgress')) throw new Error('Native progress bridge was not bundled');
+if (source.includes('navigator.serviceWorker.register')) throw new Error('PWA service worker leaked into Android bundle');
+if (!html.includes('body class="wavcloud-native"')) throw new Error('Native layout marker is missing');
+fs.writeFileSync('work/android-app-bundle-check.mjs', source);
+console.log('PASS: Android web bundle contains native bridge and no service worker registration');

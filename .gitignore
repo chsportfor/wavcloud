@@ -1,0 +1,27 @@
+# Build outputs and local toolchains
+/outputs/
+/work/*
+!/work/build.bat
+/.build-tools/
+/android-app/.gradle/
+/android-app/.kotlin/
+/android-app/build/
+/android-app/app/build/
+/android-app/app/src/main/assets/app.html
+/android-app/local.properties
+
+# Local credentials and signing material
+.env
+.env.*
+*.pem
+*.key
+*.jks
+*.keystore
+*id_rsa*
+*id_ed25519*
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
