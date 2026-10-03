@@ -17,10 +17,10 @@ images[1].onerror();assert.equal(el.style.backgroundImage,'none');
 const button=()=>({attrs:{},setAttribute(k,v){this.attrs[k]=v}});
 const repeat=button(),shuffle=button();
 context.j=function(){};context.j.prototype.updateState=()=>{};
-vm.runInContext(code.slice(code.indexOf('const cloudPlayerState='),code.indexOf('// === 10. Bootstrap')),context);
+vm.runInContext(code.slice(code.indexOf('function cloudEnhancePlayerState('),code.indexOf('// === 10. Bootstrap')),context);
 const player=new context.j();player.el={querySelector:s=>s==='#player-repeat-btn'?repeat:shuffle};player.renderQueue=()=>{};
 for(const mode of ['none','all','one']){
-  player.updateState({repeat:mode,shuffle:mode!=='none'});
+  context.cloudEnhancePlayerState.call(player,{repeat:mode,shuffle:mode!=='none'});
   assert.equal(repeat.attrs['aria-pressed'],String(mode!=='none'));
   assert.equal(shuffle.attrs['aria-pressed'],String(mode!=='none'));
 }

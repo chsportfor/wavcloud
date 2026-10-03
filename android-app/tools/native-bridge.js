@@ -1,4 +1,7 @@
 if (window.WavCloudAndroid) {
+  // The shared queue methods still call these browser-audio helpers.
+  p.triggerPreload = () => {};
+  p.cancelPreload = () => {};
   const nativeQueue = () => p.getQueue().map(track => ({
     id: String(track.id),
     title: track.title || 'Unknown title',
@@ -8,10 +11,12 @@ if (window.WavCloudAndroid) {
     artworkUri: uiResolvedArtworkUrl(track) || track.artworkUri || (track.hasArtwork ? w.getArtworkUrl(track.id) : '')
   }));
 
-  const queueSignature = () => JSON.stringify(p.getQueue().map(track => String(track.id)));
+  const queueSignature = () => JSON.stringify(nativeQueue());
   let lastQueueSignature = '';
   let queueSyncPending = false;
+  let applyingNativeState = false;
   window.addEventListener('player:queue-changed', () => {
+    if (applyingNativeState || !w.isAuthenticated()) return;
     if (queueSyncPending) return;
     queueSyncPending = true;
     Promise.resolve().then(() => {
@@ -22,6 +27,12 @@ if (window.WavCloudAndroid) {
       window.WavCloudAndroid.syncQueue(JSON.stringify(nativeQueue()));
     });
   });
+  for (const eventName of ['offline:downloaded', 'offline:removed', 'wavcloud:artwork-resolved']) {
+    window.addEventListener(eventName, () => {
+      lastQueueSignature = '';
+      window.dispatchEvent(new CustomEvent('player:queue-changed'));
+    });
+  }
 
   p.play = function(track) {
     if (!track) return;
@@ -75,6 +86,7 @@ if (window.WavCloudAndroid) {
   };
 
   let lastNativeTrackId = '';
+  let refreshedRestoredQueue = false;
   window.__wavcloudNativeProgress = raw => {
     const state = JSON.parse(raw);
     if (state.trackId && String(p.state.currentTrack?.id) !== String(state.trackId)) return;
@@ -87,8 +99,11 @@ if (window.WavCloudAndroid) {
   };
   window.__wavcloudNativeState = raw => {
     const state = JSON.parse(raw);
-    const previousQueueSignature = queueSignature();
-    if (Array.isArray(state.queue)) {
+    const firstStateWithQueue = !refreshedRestoredQueue && Array.isArray(state.queue) && state.queue.length > 0;
+    if (firstStateWithQueue) refreshedRestoredQueue = true;
+    const hasQueue = Array.isArray(state.queue);
+    const previousQueueSignature = hasQueue ? queueSignature() : lastQueueSignature;
+    if (hasQueue) {
       const existing = new Map(p.queue.map(item => [String(item.id), item]));
       p.queue = state.queue.map(item => ({
         ...(existing.get(String(item.id)) || {}),
@@ -108,12 +123,19 @@ if (window.WavCloudAndroid) {
       isLoading: state.isLoading,
       currentTime: state.currentTime,
       duration: state.duration || track?.duration || p.state.duration,
-      volume: state.volume
+      volume: state.volume,
+      repeat: state.repeat ?? p.state.repeat,
+      shuffle: state.shuffle ?? p.state.shuffle
     });
     const trackChanged = state.trackId !== lastNativeTrackId;
     lastNativeTrackId = state.trackId;
-    if (trackChanged || queueSignature() !== previousQueueSignature) {
-      window.dispatchEvent(new CustomEvent('player:queue-changed', { detail: p.getQueue() }));
+    if (firstStateWithQueue || trackChanged || (hasQueue && queueSignature() !== previousQueueSignature)) {
+      applyingNativeState = true;
+      try {
+        window.dispatchEvent(new CustomEvent('player:queue-changed', { detail: p.getQueue() }));
+      } finally {
+        applyingNativeState = false;
+      }
     }
   };
 }

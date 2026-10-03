@@ -28,9 +28,10 @@ j.prototype.render=function(){
   this.el.querySelector('#minimize-btn').setAttribute('aria-label','플레이어 접기');
   for(const [id,label] of [['player-prev-btn','이전 곡'],['player-next-btn','다음 곡'],['player-shuffle-btn','셔플'],['player-repeat-btn','반복 재생'],['player-download-btn','오프라인 저장']])this.el.querySelector('#'+id).setAttribute('aria-label',label);
   const status=uiText('div','ui-playback-status','');status.setAttribute('role','status');this.el.querySelector('.bar-left').append(status);
+  cloudEnhancePlayerRender.call(this);
 };
 const uiOriginalQueue=j.prototype.renderQueue;j.prototype.renderQueue=function(){
-  if(!this.el.classList.contains('show-queue'))return;
+  if(!this.el.classList.contains('show-queue')){cloudEnhanceQueue.call(this);return;}
   uiOriginalQueue.call(this);
   const queueTracks=this.getQueue();
   this.el.querySelectorAll('.queue-item[data-index]').forEach(row=>{
@@ -38,6 +39,7 @@ const uiOriginalQueue=j.prototype.renderQueue;j.prototype.renderQueue=function()
     const artwork=row.querySelector('.queue-item-art');
     if(track&&artwork){artwork.dataset.artworkProbe=String(track.id);uiUpgradeArtworkBackground(artwork,track);}
   });
+  cloudEnhanceQueue.call(this);
 };
 const uiOriginalHide=j.prototype.hide;j.prototype.hide=function(){this.el.classList.remove('show-queue');const trigger=this.el.querySelector('#queue-toggle-btn');trigger.setAttribute('aria-expanded','false');trigger.style.color='';this.el.querySelector('.player-header > div').textContent='지금 재생 중';uiOriginalHide.call(this);};
 function uiEnsureArtwork(element, track, backgroundElement) {
@@ -76,7 +78,7 @@ function uiEnsureArtwork(element, track, backgroundElement) {
   image.src = url;
   uiUpgradeArtworkBackground(element,track,backgroundElement);
 }
-const uiOriginalState=j.prototype.updateState;j.prototype.updateState=function(state){uiOriginalState.call(this,state);const loading=state.isLoading?'재생을 준비하고 있어요':state.currentTrack?(state.isPlaying?'재생 중':'일시정지'):'';const status=this.el.querySelector('.ui-playback-status');if(status&&status.textContent!==loading)status.textContent=loading;this.el.querySelector('#full-play-btn').setAttribute('aria-label',state.isPlaying?'일시정지':'재생');this.el.querySelector('#player-repeat-btn').setAttribute('aria-label',`반복: ${state.repeat==='all'?'전체':state.repeat==='one'?'한 곡':'끔'}`);uiEnsureArtwork(this.el.querySelector('#full-art'),state.currentTrack,this.el.querySelector('.player-bg-blur'));};
+const uiOriginalState=j.prototype.updateState;j.prototype.updateState=function(state){uiOriginalState.call(this,state);const loading=state.isLoading?'재생을 준비하고 있어요':state.currentTrack?(state.isPlaying?'재생 중':'일시정지'):'';const status=this.el.querySelector('.ui-playback-status');if(status&&status.textContent!==loading)status.textContent=loading;this.el.querySelector('#full-play-btn').setAttribute('aria-label',state.isPlaying?'일시정지':'재생');this.el.querySelector('#player-repeat-btn').setAttribute('aria-label',`반복: ${state.repeat==='all'?'전체':state.repeat==='one'?'한 곡':'끔'}`);uiEnsureArtwork(this.el.querySelector('#full-art'),state.currentTrack,this.el.querySelector('.player-bg-blur'));cloudEnhancePlayerState.call(this,state);};
 const uiOriginalMini=J.prototype.render;J.prototype.render=function(){
   uiOriginalMini.call(this);
   const area=this.el.querySelector('#np-expand-area');

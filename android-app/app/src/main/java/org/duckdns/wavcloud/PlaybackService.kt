@@ -3,8 +3,11 @@ package org.duckdns.wavcloud
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -21,6 +24,14 @@ class PlaybackService : MediaSessionService() {
     private var player: ExoPlayer? = null
     private var mediaSession: MediaSession? = null
     private var spectrumSink: SpectrumBufferSink? = null
+    private lateinit var queueStore: PlaybackQueueStore
+    private val handler = Handler(Looper.getMainLooper())
+    private val positionSaver = object : Runnable {
+        override fun run() {
+            player?.takeIf { it.isPlaying }?.let { queueStore.save(it) }
+            handler.postDelayed(this, 5_000)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -57,6 +68,7 @@ class PlaybackService : MediaSessionService() {
             }
         }
 
+        queueStore = PlaybackQueueStore(this, OfflineAudioStore(this))
         player = ExoPlayer.Builder(this, renderersFactory).build().also { exoPlayer ->
             exoPlayer.setAudioAttributes(audioAttributes, true)
             exoPlayer.setHandleAudioBecomingNoisy(true)
@@ -71,21 +83,34 @@ class PlaybackService : MediaSessionService() {
             mediaSession = MediaSession.Builder(this, exoPlayer)
                 .setSessionActivity(sessionActivity)
                 .build()
+            queueStore.restore(exoPlayer)
+            exoPlayer.addListener(object : Player.Listener {
+                override fun onEvents(player: Player, events: Player.Events) {
+                    val queueChanged = events.contains(Player.EVENT_TIMELINE_CHANGED) ||
+                        events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)
+                    queueStore.save(player, includeQueue = queueChanged)
+                }
+            })
         }
+        handler.post(positionSaver)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         player?.run {
-            stop()
-            clearMediaItems()
+            pause()
+            queueStore.save(this, includeQueue = true, synchronous = true)
         }
         stopSelf()
         super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(positionSaver)
+        player?.takeIf { it.mediaItemCount > 0 }?.let {
+            queueStore.save(it, includeQueue = true, synchronous = true)
+        }
         spectrumSink?.release()
         spectrumSink = null
         mediaSession?.release()

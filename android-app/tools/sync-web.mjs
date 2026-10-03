@@ -9,18 +9,23 @@ const catalogPath = path.join(project, 'artwork-catalog.json');
 const styleFiles = [
   'styles/base.css',
   'styles/clean-ui.css',
-  'styles/cloud-dark.css'
+  'styles/cloud-dark.css',
+  'styles/library-feedback.css'
 ];
 
 const scriptFiles = [
   'scripts/dom-safety.js',
+  'scripts/library-data.js',
+  'scripts/api-client.js',
   'scripts/runtime.js',
   'scripts/ui-primitives.js',
   'scripts/artwork.js',
   'scripts/library-view.js',
   'scripts/player-view.js',
   '../tools/native-bridge.js',
+  'scripts/native-offline.js',
   'scripts/cloud-dark.js',
+  'scripts/library-feedback.js',
   'scripts/bootstrap.js'
 ];
 

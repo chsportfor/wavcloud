@@ -41,6 +41,16 @@ W.prototype.categoryAlbumMap = function() {
 
 // 2. Main Render Function (Tabs, Detail Views, Mode Bar)
 W.prototype.render = function() {
+  this.trackRenderVersion = (this.trackRenderVersion || 0) + 1;
+  if (!this.searchConfigured) {
+    const search = this.el.querySelector('#search-input');
+    search.type = 'search';
+    search.placeholder = '곡, 아티스트, 앨범 검색';
+    search.setAttribute('aria-label', '곡, 아티스트, 앨범 검색');
+    search.style.maxWidth = 'none';
+    this.el.querySelector('.library-header').after(search);
+    this.searchConfigured = true;
+  }
   const isDetail = !!this.activeDetailView;
   const isSearch = !!this.searchQuery;
   const isLibTab = (this.currentMenuTab === "tracks" || this.currentMenuTab === "folders");
@@ -145,6 +155,15 @@ W.prototype.renderAllTracksList = function() {
 
   // Loading state (Clean spinner, NEVER flash raw flat tracks)
   if (this.tracks.length === 0) {
+    if (this.libraryLoaded) {
+      const empty = uiText('div', 'ui-empty-library');
+      empty.append(
+        uiText('p', 'ui-sheet-description', '아직 등록된 곡이 없습니다.'),
+        uiButton('음악 업로드', 'ui-action-primary', () => this.showUploadModal())
+      );
+      this.trackListEl.append(empty);
+      return;
+    }
     this.trackListEl.innerHTML = `
       <div style="text-align:center; padding: 60px 20px; color: var(--text-secondary);">
         <svg class="spinner" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-bottom: 12px;">
@@ -396,11 +415,16 @@ W.prototype.renderDetailViewTracks = function() {
 
 // 7. Offline List Tab
 W.prototype.renderOfflineList = async function() {
+  const version = this.trackRenderVersion;
   this.trackListEl.replaceChildren();
   const cached = [];
   for (const t of this.tracks) {
-    if (await A.isTrackCached(t.id)) cached.push(t);
+    const saved = await A.isTrackCached(t.id);
+    if (version !== this.trackRenderVersion) return;
+    const query = this.searchQuery;
+    if (saved && (!query || [t.title, t.artist, t.album].some(value => value?.toLowerCase().includes(query)))) cached.push(t);
   }
+  if (version !== this.trackRenderVersion) return;
   if (cached.length === 0) {
     this.trackListEl.innerHTML = `
       <div style="text-align:center; padding: 60px 20px; color: var(--text-secondary);">
@@ -409,7 +433,7 @@ W.prototype.renderOfflineList = async function() {
           <polyline points="7 10 12 15 17 10"></polyline>
           <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
-        <p>오프라인으로 저장된 곡이 없습니다.</p>
+        <p>${this.searchQuery ? '저장된 곡 중 검색 결과가 없습니다.' : '오프라인으로 저장된 곡이 없습니다.'}</p>
       </div>`;
     return;
   }
@@ -420,9 +444,36 @@ W.prototype.renderOfflineList = async function() {
 };
 
 // 8. Enhance Track Rows with Track Numbers & More Popup Menu
+async function uiRefreshOfflineBadge(row) {
+  const badge = row.querySelector('.ui-offline-badge');
+  const check = (Number(row.dataset.offlineCheck) || 0) + 1;
+  row.dataset.offlineCheck = String(check);
+  let saved = false;
+  try {
+    saved = await A.isTrackCached(row.dataset.id);
+  } catch (error) {
+    console.warn('[OfflineBadge] Could not check saved track:', error);
+  }
+  if (row.dataset.offlineCheck !== String(check)) return;
+  row.dataset.offlineSaved = String(saved);
+  if (badge) badge.hidden = !saved;
+  const download = row.querySelector('.download-btn');
+  if (download) download.title = saved ? '오프라인 저장 삭제' : '오프라인으로 저장';
+}
+
+for (const eventName of ['offline:downloaded', 'offline:removed']) {
+  window.addEventListener(eventName, event => {
+    const trackId = String(event.detail);
+    document.querySelectorAll('.ui-restored-album-list .track-item[data-id]').forEach(row => {
+      if (row.dataset.id === trackId) uiRefreshOfflineBadge(row);
+    });
+  });
+}
+
 const uiOriginalRows = W.prototype.renderTrackItemsList;
 const uiOriginalReorderTracks = W.prototype.reorderTracks;
 W.prototype.reorderTracks = function(tracks, fromIndex, toIndex) {
+  if (this.searchQuery || this.currentMenuTab === 'offline') return;
   const context = uiTrackOrderContext(this);
   if (!context) return uiOriginalReorderTracks.call(this, tracks, fromIndex, toIndex);
   const moved = tracks.splice(fromIndex, 1)[0];
@@ -433,18 +484,20 @@ W.prototype.reorderTracks = function(tracks, fromIndex, toIndex) {
 };
 
 W.prototype.renderTrackItemsList = async function(tracks, target) {
-  await uiOriginalRows.call(this, tracks, target);
+  if (await uiOriginalRows.call(this, tracks, target) === false) return;
   const list = target || this.trackListEl;
-  const isReorderableDetail = !!uiTrackOrderContext(this);
+  const isReorderableDetail = !!uiTrackOrderContext(this) && !this.searchQuery && this.currentMenuTab !== 'offline';
+  list.classList.add('ui-track-list');
   list.classList.toggle('ui-restored-album-list', isReorderableDetail);
   list.querySelectorAll('.track-item[data-id]').forEach((row, index) => {
+    if (this.searchQuery || this.currentMenuTab === 'offline') row.setAttribute('draggable', 'false');
     if (row.querySelector('.ui-more')) return;
     const drag = row.querySelector('.drag-handle');
     if (drag) {
       drag.replaceChildren();
       drag.classList.add('ui-track-number');
       drag.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="6" r="1"></circle><circle cx="16" cy="6" r="1"></circle><circle cx="8" cy="12" r="1"></circle><circle cx="16" cy="12" r="1"></circle><circle cx="8" cy="18" r="1"></circle><circle cx="16" cy="18" r="1"></circle></svg><span>${String(index + 1).padStart(2, '0')}</span>`;
-      drag.setAttribute('aria-label', `${index + 1}번 곡 순서 변경`);
+      drag.setAttribute('aria-label', `${index + 1}번 곡${isReorderableDetail || this.activeDetailView?.type === 'playlist' && !this.searchQuery ? ' 순서 변경' : ''}`);
       drag.addEventListener('click', event => event.stopPropagation());
 
       if (isReorderableDetail) {
@@ -482,9 +535,19 @@ W.prototype.renderTrackItemsList = async function(tracks, target) {
     }
     const actions = [...row.querySelectorAll('.track-queue-btn,.playlist-action-btn,.download-btn')];
     actions.forEach(b => b.hidden = true);
-    const more = uiButton('···', 'ui-more', e => {
+    if (isReorderableDetail) {
+      const info = row.querySelector('.track-info');
+      if (info && !info.querySelector('.ui-offline-badge')) {
+        const badge = uiText('span', 'ui-offline-badge', '오프라인 저장됨');
+        badge.hidden = true;
+        info.append(badge);
+      }
+      uiRefreshOfflineBadge(row);
+    }
+    const more = uiButton('···', 'ui-more', async e => {
       e.stopPropagation();
-      const track = tracks.find(t => t.id === row.dataset.id);
+      await uiRefreshOfflineBadge(row);
+      const track = tracks.find(t => String(t.id) === String(row.dataset.id));
       const d = uiDialog(track?.title || '곡 메뉴');
       const menu = uiText('div', 'ui-menu', '');
       for (const original of actions) {
@@ -492,7 +555,7 @@ W.prototype.renderTrackItemsList = async function(tracks, target) {
           ? '대기열에 추가'
           : original.matches('.playlist-action-btn')
           ? (this.activeDetailView?.type === 'playlist' ? '재생목록에서 제거' : '재생목록에 추가')
-          : original.title === 'Delete cache'
+          : row.dataset.offlineSaved === 'true'
           ? '오프라인 저장 삭제'
           : '오프라인으로 저장';
         menu.append(uiButton(label, 'ui-menu-item', () => {

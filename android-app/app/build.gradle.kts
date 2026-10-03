@@ -13,8 +13,8 @@ android {
         applicationId = "org.duckdns.wavcloud"
         minSdk = 26
         targetSdk = 36
-        versionCode = 27
-        versionName = "0.1.26"
+        versionCode = 33
+        versionName = "0.1.32"
     }
 
     signingConfigs {

@@ -3,19 +3,25 @@ package org.duckdns.wavcloud
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.Bundle
 import android.webkit.JavascriptInterface
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import org.json.JSONArray
 
-class NativePlayerBridge {
+class NativePlayerBridge(
+    private val offlineAudio: OfflineAudioStore,
+    private val onStateRequested: () -> Unit
+) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var player: Player? = null
     private val pendingActions = ArrayDeque<(Player) -> Unit>()
+    @Volatile private var closed = false
 
     fun attachPlayer(value: Player?) {
         mainHandler.post {
+            if (closed) return@post
             player = value
             if (value != null) {
                 while (pendingActions.isNotEmpty()) pendingActions.removeFirst()(value)
@@ -23,9 +29,21 @@ class NativePlayerBridge {
         }
     }
 
+    fun close() {
+        closed = true
+        mainHandler.post {
+            player = null
+            pendingActions.clear()
+        }
+    }
+
     private fun withPlayer(action: (Player) -> Unit) {
         mainHandler.post {
-            player?.let(action) ?: pendingActions.addLast(action)
+            if (closed) return@post
+            player?.let(action) ?: run {
+                if (pendingActions.size >= 64) pendingActions.removeFirst()
+                pendingActions.addLast(action)
+            }
         }
     }
 
@@ -54,6 +72,11 @@ class NativePlayerBridge {
                     is QueueOperation.Remove -> player.removeMediaItem(operation.index)
                 }
             }
+            for (index in items.indices) {
+                if (player.getMediaItemAt(index) != items[index]) {
+                    player.replaceMediaItem(index, items[index])
+                }
+            }
         }
     }
 
@@ -63,6 +86,11 @@ class NativePlayerBridge {
     @JavascriptInterface fun seekTo(seconds: Double) = withPlayer { it.seekTo((seconds * 1000).toLong()) }
     @JavascriptInterface fun setVolume(value: Double) = withPlayer { it.volume = value.toFloat().coerceIn(0f, 1f) }
     @JavascriptInterface fun setShuffle(enabled: Boolean) = withPlayer { it.shuffleModeEnabled = enabled }
+
+    @JavascriptInterface
+    fun requestState() {
+        mainHandler.post { if (!closed) onStateRequested() }
+    }
 
     @JavascriptInterface
     fun getSpectrum(): String = JSONArray(SpectrumStore.bands.toList()).toString()
@@ -87,6 +115,9 @@ class NativePlayerBridge {
                     .setTitle(track.optString("title", "Unknown title"))
                     .setArtist(track.optString("artist", "Unknown artist"))
                     .setAlbumTitle(track.optString("album", "WavCloud"))
+                    .setExtras(Bundle().apply {
+                        putString(PlaybackQueueStore.STREAM_URI_KEY, track.optString("streamUri"))
+                    })
                     .apply {
                         track.optString("artworkUri").takeIf { it.isNotBlank() }?.let {
                             setArtworkUri(Uri.parse(it))
@@ -96,7 +127,7 @@ class NativePlayerBridge {
                 add(
                     MediaItem.Builder()
                         .setMediaId(track.getString("id"))
-                        .setUri(track.getString("streamUri"))
+                        .setUri(offlineAudio.mediaUri(track.getString("id"), track.getString("streamUri")))
                         .setMediaMetadata(metadata)
                         .build()
                 )

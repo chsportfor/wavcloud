@@ -16,7 +16,10 @@ if (start < 0 || end <= start) throw new Error('Bundled module script is missing
 const source = html.slice(start + startToken.length, end);
 if (!source.includes('WavCloudAndroid.setQueue')) throw new Error('Native bridge was not bundled');
 if (!source.includes('__wavcloudNativeProgress')) throw new Error('Native progress bridge was not bundled');
+if (!source.includes('WavCloudOffline.download') || !source.includes('__wavcloudOfflineResult')) {
+  throw new Error('Native offline bridge was not bundled');
+}
 if (source.includes('navigator.serviceWorker.register')) throw new Error('PWA service worker leaked into Android bundle');
 if (!html.includes('body class="wavcloud-native"')) throw new Error('Native layout marker is missing');
 fs.writeFileSync('work/android-app-bundle-check.mjs', source);
-console.log('PASS: Android web bundle contains native bridge and no service worker registration');
+console.log('PASS: Android web bundle contains playback/offline bridges and no service worker registration');

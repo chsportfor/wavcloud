@@ -24,9 +24,7 @@ function cloudUpcomingQueue(queue, state) {
   };
 }
 
-const cloudRenderPlayer = j.prototype.render;
-j.prototype.render = function() {
-  cloudRenderPlayer.call(this);
+function cloudEnhancePlayerRender() {
   const trigger = this.el.querySelector('#queue-toggle-btn');
   const opener = uiButton('', 'cloud-queue-open', () => trigger.click());
   opener.append(uiText('span','','재생 대기열'),uiText('span','cloud-queue-total','0곡'));
@@ -41,15 +39,13 @@ j.prototype.render = function() {
   this.el.querySelector('#minimize-btn').addEventListener('click',event=>{
     if(this.el.classList.contains('show-queue')){event.stopImmediatePropagation();trigger.click();opener.focus();}
   },true);
-};
-const cloudQueue = j.prototype.renderQueue;
-j.prototype.renderQueue = function() {
+}
+function cloudEnhanceQueue() {
   const queue = p.getQueue();
   const state = p.getState();
   const upcoming = cloudUpcomingQueue(queue, state);
   const total=this.el.querySelector('.cloud-queue-total');
   if(total)total.textContent=`다음 ${upcoming.indices.length}곡`;
-  cloudQueue.call(this);
   if(!this.el.classList.contains('show-queue'))return;
   const count = this.el.querySelector('#queue-count');
   if (count) count.textContent = String(upcoming.indices.length);
@@ -90,10 +86,8 @@ j.prototype.renderQueue = function() {
       handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',end,{once:true});
     });
   });
-};
-const cloudPlayerState=j.prototype.updateState;
-j.prototype.updateState=function(state){
-  cloudPlayerState.call(this,state);
+}
+function cloudEnhancePlayerState(state){
   const repeat=this.el.querySelector('#player-repeat-btn'),shuffle=this.el.querySelector('#player-shuffle-btn');
   repeat.setAttribute('aria-pressed',String(state.repeat==='all'||state.repeat==='one'));
   repeat.title=state.repeat==='all'?'전체 반복 켜짐':state.repeat==='one'?'한 곡 반복 켜짐':'반복 꺼짐';
@@ -101,4 +95,4 @@ j.prototype.updateState=function(state){
   shuffle.title=state.shuffle?'셔플 켜짐':'셔플 꺼짐';
   const key=`${state.currentTrack?.id}:${state.isPlaying}:${state.repeat}:${state.shuffle}`;
   if(this.cloudStateKey!==key){this.cloudStateKey=key;this.renderQueue();}
-};
+}

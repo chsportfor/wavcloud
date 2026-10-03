@@ -4,7 +4,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync('android-app/web-src/scripts/cloud-dark.js', 'utf8');
 const playerSource = fs.readFileSync('android-app/web-src/scripts/player-view.js', 'utf8');
-const functionSource = source.slice(source.indexOf('function cloudUpcomingQueue('), source.indexOf('const cloudRenderPlayer ='));
+const functionSource = source.slice(source.indexOf('function cloudUpcomingQueue('), source.indexOf('function cloudEnhancePlayerRender('));
 const context = {};
 vm.createContext(context);
 vm.runInContext(functionSource, context);

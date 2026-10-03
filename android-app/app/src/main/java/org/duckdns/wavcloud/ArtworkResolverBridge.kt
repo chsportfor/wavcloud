@@ -3,7 +3,6 @@ package org.duckdns.wavcloud
 import android.content.Context
 import android.os.SystemClock
 import android.webkit.JavascriptInterface
-import android.webkit.WebView
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,7 +11,7 @@ import java.text.Normalizer
 import java.util.concurrent.Executors
 
 class ArtworkResolverBridge(
-    private val webView: WebView,
+    private val javascript: JavascriptGateway,
     context: Context
 ) {
     private val executor = Executors.newSingleThreadExecutor()
@@ -34,18 +33,16 @@ class ArtworkResolverBridge(
             return
         }
 
-        executor.execute {
-            webView.post {
-                webView.evaluateJavascript(
-                    "window.__wavcloudArtworkStarted?.(${JSONObject.quote(requestId)})", null
-                )
+        runCatching {
+            executor.execute {
+                javascript.invokeArgs("__wavcloudArtworkStarted", requestId)
+                val artworkUrl = runCatching {
+                    findArtwork(album.trim(), artist.trim(), normalizedAlbum, normalizedArtist)
+                }.getOrNull().orEmpty()
+                if (artworkUrl.isNotBlank()) preferences.edit().putString(cacheKey, artworkUrl).apply()
+                callback(requestId, artworkUrl)
             }
-            val artworkUrl = runCatching {
-                findArtwork(album.trim(), artist.trim(), normalizedAlbum, normalizedArtist)
-            }.getOrNull().orEmpty()
-            if (artworkUrl.isNotBlank()) preferences.edit().putString(cacheKey, artworkUrl).apply()
-            callback(requestId, artworkUrl)
-        }
+        }.onFailure { callback(requestId, "") }
     }
 
     fun shutdown() {
@@ -122,13 +119,7 @@ class ArtworkResolverBridge(
     }
 
     private fun callback(requestId: String, url: String) {
-        webView.post {
-            webView.evaluateJavascript(
-                "window.__wavcloudArtworkResolved?.(" +
-                    "${JSONObject.quote(requestId)},${JSONObject.quote(url)})",
-                null
-            )
-        }
+        javascript.invokeArgs("__wavcloudArtworkResolved", requestId, url)
     }
 
     private fun normalize(value: String): String = Normalizer
@@ -143,6 +134,6 @@ class ArtworkResolverBridge(
 
     companion object {
         private const val MUSICBRAINZ_INTERVAL_MS = 1_100L
-        private const val USER_AGENT = "WavCloud/0.1.21 (https://wavcloud.duckdns.org)"
+        private const val USER_AGENT = "WavCloud/0.1.29 (https://wavcloud.duckdns.org)"
     }
 }

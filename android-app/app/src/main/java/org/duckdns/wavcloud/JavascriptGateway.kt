@@ -21,6 +21,13 @@ class JavascriptGateway(private val webView: WebView) {
         }
     }
 
+    fun invokeArgs(callback: String, vararg values: String) {
+        val arguments = values.joinToString(",") { JSONObject.quote(it) }
+        webView.post {
+            if (active) webView.evaluateJavascript("window.$callback?.($arguments)", null)
+        }
+    }
+
     fun close() {
         active = false
     }

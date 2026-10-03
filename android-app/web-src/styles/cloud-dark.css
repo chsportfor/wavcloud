@@ -173,3 +173,5 @@ body:has(.now-playing-bar.visible) .library-scroll-container{margin-bottom:calc(
   .player-content{gap:10px!important}
   .player-view .player-bar{gap:11px!important;padding-bottom:0!important}
 }
+
+.library-fixed-header > #search-input{width:100%;box-sizing:border-box;margin:12px 0 0;padding:12px 14px!important;border-radius:12px!important;background:#111722!important;font-size:14px} .ui-empty-library{text-align:center;padding:60px 20px}

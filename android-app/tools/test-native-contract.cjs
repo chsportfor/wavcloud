@@ -2,6 +2,24 @@ const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert/strict');
 
+const runtimeSource = fs.readFileSync('android-app/web-src/scripts/runtime.js', 'utf8');
+const classStart = runtimeSource.indexOf('class _{constructor(){');
+const constructorEnd = runtimeSource.indexOf('setupNetworkWatch(){', classStart);
+assert.ok(classStart >= 0 && constructorEnd > classStart, 'native player constructor must be found');
+const probeContext = {
+  window: { WavCloudAndroid: {} },
+  localStorage: { getItem: () => null },
+  Audio: class { constructor() { throw new Error('Browser audio must not start in Android'); } },
+  v: (object, key, value) => { object[key] = value; }
+};
+vm.createContext(probeContext);
+vm.runInContext(runtimeSource.slice(classStart, constructorEnd) +
+  'setupNetworkWatch(){throw Error("Browser network watcher started")}'+
+  'setupListeners(){throw Error("Browser audio listeners started")}'+
+  'setupMediaSession(){throw Error("Browser media session started")}}'+
+  'globalThis.NativeRuntimeProbe=_;', probeContext);
+assert.equal(new probeContext.NativeRuntimeProbe().audios.length, 0);
+
 const calls = [];
 const listeners = new Map();
 let spectrumLevel = 72;
@@ -43,7 +61,7 @@ const context = {
     dispatchEvent(event) { listeners.get(event.type)?.(event); }
   },
   p,
-  w: { getStreamUrl: id => `/stream/${id}`, getArtworkUrl: id => `/art/${id}` },
+  w: { isAuthenticated: () => true, getStreamUrl: id => `/stream/${id}`, getArtworkUrl: id => `/art/${id}` },
   uiResolvedArtworkUrl: track => track.id === 'hq' ? 'https://example.test/hq.jpg' : '',
   localStorage: { setItem() {} },
   performance: { now: () => clock },
@@ -52,6 +70,13 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('android-app/tools/native-bridge.js', 'utf8'), context);
+const startupOrder = [];
+vm.runInNewContext(fs.readFileSync('android-app/web-src/scripts/bootstrap.js', 'utf8'), {
+  document: { readyState: 'complete' },
+  K: class { constructor() { startupOrder.push('ui'); } },
+  window: { WavCloudAndroid: { requestState() { startupOrder.push('state'); } } }
+});
+assert.deepEqual(startupOrder, ['ui', 'state'], 'restore must be requested after the player UI exists');
 
 async function run() {
 const originalQueue = p.queue;
@@ -78,11 +103,23 @@ context.window.__wavcloudNativeState(JSON.stringify({
   currentTime: 3,
   duration: 180,
   volume: 0.7,
+  repeat: 'all',
+  shuffle: true,
   queue: [{ id: 'hq', title: 'HQ', artist: 'Artist', album: 'Album', artworkUri: 'https://example.test/hq.jpg' }]
 }));
 assert.equal(p.queue.length, 1);
 assert.equal(p.state.currentTrack.id, 'hq');
 assert.equal(p.state.volume, 0.7);
+assert.equal(p.state.repeat, 'all', 'native repeat mode must be restored');
+assert.equal(p.state.shuffle, true, 'native shuffle mode must be restored');
+
+context.window.__wavcloudNativeState(JSON.stringify({
+  trackId: 'hq', isPlaying: false, isLoading: false, currentTime: 4,
+  duration: 180, volume: 0.7, repeat: 'one', shuffle: false
+}));
+assert.equal(p.queue.length, 1, 'state-only event must preserve the queue');
+assert.equal(p.state.repeat, 'one');
+assert.equal(p.state.shuffle, false);
 
 context.window.__wavcloudNativeState(JSON.stringify({
   trackId: 'restored', isPlaying: false, isLoading: false, currentTime: 12, duration: 180, volume: 0.7,
@@ -90,6 +127,9 @@ context.window.__wavcloudNativeState(JSON.stringify({
 }));
 assert.equal(p.queue[0].artworkUri, 'https://example.test/restored.jpg');
 assert.equal(p.state.currentTrack.id, 'restored');
+await Promise.resolve();
+assert.equal(calls.filter(call => call[0] === 'syncQueue').length, 0,
+  'restoring the native queue must not echo an incomplete queue back to Android');
 
 p.play(p.queue[0]);
 const setQueue = calls.find(call => call[0] === 'setQueue');
@@ -109,6 +149,17 @@ p.getByteFrequencyData(spectrum);
 assert.ok(spectrum.every(value => value === 0), 'paused playback must hide stale spectrum');
 await Promise.resolve();
 assert.equal(calls.filter(call => call[0] === 'syncQueue').length, 0, 'playing after setQueue should not sync twice');
+
+const syncsBeforeArtwork = calls.filter(call => call[0] === 'syncQueue').length;
+p.queue[0].artworkUri = 'https://example.test/new-cover.jpg';
+p.emitQueueChange();
+await Promise.resolve();
+assert.equal(calls.filter(call => call[0] === 'syncQueue').length, syncsBeforeArtwork + 1,
+  'updated artwork must sync even when track IDs are unchanged');
+context.window.dispatchEvent({ type: 'offline:downloaded' });
+await Promise.resolve();
+assert.equal(calls.filter(call => call[0] === 'syncQueue').length, syncsBeforeArtwork + 2,
+  'a downloaded file must refresh the native queue URI');
 
 const next = { id: 'next', title: 'Next', artist: 'Artist', album: 'Album' };
 p.playNextInQueue(next);

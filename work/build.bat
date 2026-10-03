@@ -35,6 +35,10 @@ node android-app\tools\check-bundle.mjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-native-contract.cjs
 if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-native-offline.cjs
+if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-offline-row.cjs
+if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-artwork-quality.cjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-artwork-catalog-load.cjs
@@ -44,6 +48,12 @@ if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-queue-display.cjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-dom-safety.cjs
+if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-library-feedback.cjs
+if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-library-data.cjs
+if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-api-client.cjs
 if errorlevel 1 exit /b %errorlevel%
 
 cd /d "%PROJECT_DIR%\android-app"
