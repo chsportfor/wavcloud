@@ -85,5 +85,6 @@ if (command === '--check') {
 }
 
 if (command !== '--write') throw new Error(`Unknown option: ${command}`);
+fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, generated);
 console.log(`Generated ${path.relative(project, output)} from web-src`);
