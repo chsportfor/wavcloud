@@ -39,6 +39,7 @@ const context = {
   CustomEvent: class { constructor(type) { this.type = type; } }
 };
 vm.createContext(context);
+vm.runInContext(fs.readFileSync('android-app/web-src/scripts/offline-store.js', 'utf8').split('class BrowserOfflineStore')[0], context);
 vm.runInContext(fs.readFileSync('android-app/web-src/scripts/native-offline.js', 'utf8'), context);
 
 async function run() {

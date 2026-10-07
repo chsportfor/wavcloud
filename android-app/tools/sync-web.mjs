@@ -17,6 +17,7 @@ const scriptFiles = [
   'scripts/dom-safety.js',
   'scripts/library-data.js',
   'scripts/api-client.js',
+  'scripts/offline-store.js',
   'scripts/runtime.js',
   'scripts/ui-primitives.js',
   'scripts/artwork.js',

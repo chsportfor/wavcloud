@@ -37,6 +37,8 @@ node android-app\tools\test-native-contract.cjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-native-offline.cjs
 if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-offline-store.cjs
+if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-offline-row.cjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-artwork-quality.cjs

@@ -21,7 +21,9 @@
 - `JavascriptGateway.kt`는 WebView 콜백 호출과 JSON 인코딩을 한 곳에서 처리한다.
 - `PlaybackService.kt`는 백그라운드 재생과 MediaSession 수명을 담당한다. `PlaybackQueueStore.kt`가 대기열 변경과 재생 위치를 앱 내부 저장소에 기록하고, 프로세스가 다시 시작되면 일시정지 상태로 복원한다.
 - `OfflineAudioStore.kt`는 오프라인 파일 저장과 Media3용 로컬 URI를 담당한다. `NativeOfflineBridge.kt`와 `native-offline.js`가 기존 웹 화면의 저장·삭제 계약을 연결한다.
-- 오프라인 파일은 다운로드 크기와 전송 완료를 확인한 뒤 임시 파일에서 최종 경로로 옮긴다. 동시에 두 WebView 캐시 가져오기가 시작되면 나중 요청은 거절된다.
+- 오프라인 파일은 다운로드 크기와 전송 완료를 확인한 뒤 임시 파일에서 최종 경로로 옮긴다. `native-offline.js`가 WebView 캐시 가져오기를 곡별로 공유하고 서로 다른 곡은 차례로 처리한다. 실패한 이전은 원본을 보존해 재시도할 수 있다.
+- `offline-store.js`는 브라우저 음원 캐시, 저장 ID 검증, 다운로드 요청 공유와 자동 저장 정리를 담당한다. Android는 이 객체의 저장·삭제·조회 메서드를 네이티브 계약으로 연결한다. 명시적으로 저장한 곡은 자동 저장 한도에서 제외한다.
+- 다운로드와 삭제가 겹치면 진행 중인 저장 작업을 기다린 다음 삭제한다. 부분 응답·빈 파일·음원이 아닌 응답을 다운로드 완료로 처리하지 않는다.
 
 ## 변경 기준
 
@@ -46,6 +48,7 @@
 - `test-artwork-quality.cjs`: 고화질 커버 선택·중복 요청·실패 대체 검사
 - `test-cloud-dark.cjs`: 플레이어, 필터, 스크롤, 곡 순서 회귀 검사
 - `test-native-offline.cjs`: Android 오프라인 저장·삭제 및 기존 WebView 캐시 이전 검사
+- `test-offline-store.cjs`: 자동·수동 다운로드 공유, 잘못된 응답, 자동 저장 한도, 삭제 실패, 제한 시간, 네이티브 이전 직렬 처리·실패 후 재시도·다운로드 중 삭제 검사
 - `test-offline-row.cjs`: 앨범 곡의 저장 표시가 다운로드·삭제 직후 갱신되는지 검사
 - `test-dom-safety.cjs`: 외부 메타데이터 표시 계약 검사
 - `test-library-feedback.cjs`: 한글·일본어 재생목록, 중복 추가 방지, 스캔 진행률·재연결·통신 오류 복구 검사

@@ -464,7 +464,7 @@ async function uiRefreshOfflineBadge(row) {
 for (const eventName of ['offline:downloaded', 'offline:removed']) {
   window.addEventListener(eventName, event => {
     const trackId = String(event.detail);
-    document.querySelectorAll('.ui-restored-album-list .track-item[data-id]').forEach(row => {
+    document.querySelectorAll('.library-view .track-item[data-id]').forEach(row => {
       if (row.dataset.id === trackId) uiRefreshOfflineBadge(row);
     });
   });
@@ -535,15 +535,13 @@ W.prototype.renderTrackItemsList = async function(tracks, target) {
     }
     const actions = [...row.querySelectorAll('.track-queue-btn,.playlist-action-btn,.download-btn')];
     actions.forEach(b => b.hidden = true);
-    if (isReorderableDetail) {
-      const info = row.querySelector('.track-info');
-      if (info && !info.querySelector('.ui-offline-badge')) {
-        const badge = uiText('span', 'ui-offline-badge', '오프라인 저장됨');
-        badge.hidden = true;
-        info.append(badge);
-      }
-      uiRefreshOfflineBadge(row);
+    const info = row.querySelector('.track-info');
+    if (info && !info.querySelector('.ui-offline-badge')) {
+      const badge = uiText('span', 'ui-offline-badge', '오프라인 저장됨');
+      badge.hidden = true;
+      info.append(badge);
     }
+    uiRefreshOfflineBadge(row);
     const more = uiButton('···', 'ui-more', async e => {
       e.stopPropagation();
       await uiRefreshOfflineBadge(row);

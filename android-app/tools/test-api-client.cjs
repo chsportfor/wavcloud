@@ -13,6 +13,12 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(source + '\nglobalThis.api = w;', context);
+for (const hostname of ['localhost', '127.0.0.1']) {
+  const local = { ...context, window: { location: { hostname, origin: `http://${hostname}:5173` } } };
+  vm.createContext(local);
+  vm.runInContext(source + '\nglobalThis.api = w;', local);
+  assert.equal(local.api.getStreamUrl('song'), `http://${hostname}:3000/api/stream/song?token=saved-token`);
+}
 (async () => {
   assert.equal(context.api.getArtworkUrl('a/b'), 'https://wavcloud.duckdns.org/api/tracks/a%2Fb/artwork?token=saved-token');
   fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ tracks: [{ id: 'a', title: '日本語', filePath: '/a.flac' }] }) });

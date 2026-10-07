@@ -1,6 +1,6 @@
 // The API contract lives here instead of inside the compressed view runtime.
 const z = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const B = z ? 'http://localhost:3000' : window.location.origin;
+const B = z ? `http://${window.location.hostname}:3000` : window.location.origin;
 
 class WavCloudApi {
   constructor() { this.token = localStorage.getItem('cm_token'); }
