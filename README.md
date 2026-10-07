@@ -22,3 +22,6 @@ Android 앱은 `android-app/`, 웹사이트의 빌드와 PC 화면은 `web-app/`
 [PC 앱 개발·설치 안내](desktop-app/README.md)에 Windows 설치형·무설치형,
 트레이 재생·창 복원·사용자 데이터·빌드 절차를 정리했습니다.
 [Windows PC 앱 구성 결과](docs/PC_COMPLETION_2026-10-07.md)에 확인 범위와 산출물이 있습니다.
+
+[AdGuard Home 운영 안내](ops/adguard-home/README.md)에 휴대폰 암호화 DNS 주소,
+관리 화면의 SSH 접근, 자원 제한과 인증서 갱신·복구 절차를 정리했습니다.
