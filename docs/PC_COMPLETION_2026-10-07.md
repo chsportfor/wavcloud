@@ -31,6 +31,8 @@ Windows x64 개인용 앱 `0.1.0`을 `desktop-app/`에 추가했다.
 | 실제 Electron SDK | Windows에서 창 없이 초기화 성공, 종료 코드 0 |
 | 패키지 확인 | 실제 SDK로 app.asar 모듈·512px 아이콘·복구 화면·지속 세션 읽기 성공 |
 | 파일 무결성 | 두 EXE의 SHA-256 기록, 서버 전송 후 검증 |
+| 다운로드 링크 | HTTPS HEAD 200, Range 206과 실제 EXE 헤더 확인 |
+| 새 복제본 | 커밋 소스만 복제해 npm ci·npm test·npm run pack 성공, 작업 트리 변경 없음 |
 
 직전 웹 작업에서 실제 운영 라이브러리·스트리밍과 PC·모바일 배치를 Chromium에서 확인했다.
 이번 환경의 UI 도구는 Windows 네이티브 앱 조작을 지원하지 않아 **설치 UI, 실제 PC 앱 창에서의 로그인·재생·트레이 이동,
