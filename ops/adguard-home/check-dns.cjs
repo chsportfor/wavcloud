@@ -22,7 +22,7 @@ function response(bytes, sent) {
 function dot(domain) {
   const sent = query(domain);
   return new Promise((resolve,reject) => {
-    const socket = tls.connect({ host: process.env.DNS_TEST_HOST || 'wavcloud.duckdns.org', port: 853, servername: 'wavcloud.duckdns.org', rejectUnauthorized: true });
+    const socket = tls.connect({ host: process.env.DNS_TEST_HOST || 'adguardfm.duckdns.org', port: 853, servername: 'adguardfm.duckdns.org', rejectUnauthorized: true });
     const timer = setTimeout(() => socket.destroy(new Error('DoT connection timed out')),6000);
     let data = Buffer.alloc(0);
     socket.on('secureConnect', () => { const len = Buffer.alloc(2); len.writeUInt16BE(sent.length); socket.write(Buffer.concat([len,sent])); });
@@ -32,7 +32,7 @@ function dot(domain) {
 }
 async function doh(domain) {
   const sent = query(domain);
-  const result = await fetch('https://wavcloud.duckdns.org/dns-query?dns='+sent.toString('base64url'), { headers: { Accept: 'application/dns-message' }, signal: AbortSignal.timeout(10000) });
+  const result = await fetch('https://adguardfm.duckdns.org/dns-query?dns='+sent.toString('base64url'), { headers: { Accept: 'application/dns-message' }, signal: AbortSignal.timeout(10000) });
   if (!result.ok || !result.headers.get('content-type')?.includes('application/dns-message')) throw new Error('DoH HTTP '+result.status);
   return response(Buffer.from(await result.arrayBuffer()),sent);
 }

@@ -8,7 +8,7 @@
 Android의 프라이빗 DNS 제공업체 호스트 이름:
 
 ```text
-wavcloud.duckdns.org
+adguardfm.duckdns.org
 ```
 
 프로토콜은 DNS-over-TLS이며 TCP 853을 사용한다. 삼성 기기는 대체로
@@ -19,10 +19,10 @@ VPN을 켜지 않아도 일반 Wi-Fi·모바일 데이터에서 사용한다.
 DNS-over-HTTPS 주소:
 
 ```text
-https://wavcloud.duckdns.org/dns-query
+https://adguardfm.duckdns.org/dns-query
 ```
 
-iPhone 설정 파일은 [DoH 프로파일](https://wavcloud.duckdns.org/downloads/WavCloud-AdGuard-DoH.mobileconfig)을 다운로드한 뒤
+iPhone 설정 파일은 [DoH 프로파일](https://adguardfm.duckdns.org/downloads/AdGuardFM-DoH.mobileconfig)을 다운로드한 뒤
 설정의 다운로드한 프로파일 또는 일반 → VPN 및 기기 관리에서 설치한다.
 프로파일은 `com.apple.dnsSettings.managed` DNS 설정과 위 HTTPS 주소만 포함하며 관리자 암호는 없다.
 실제 휴대폰의 설정 변경은 사용자가 수행한다. 사용자 웹사이트를 차단하면 관리 화면에서 허용 목록에 추가할 수 있다.
@@ -42,7 +42,7 @@ iPhone 설정 파일은 [DoH 프로파일](https://wavcloud.duckdns.org/download
 - CPUQuota 50%, MemoryHigh 384MiB, MemoryMax 512MiB. 상한은 자원 예약량이 아니다.
 - 기본 AdGuard DNS 필터 1개, 4MiB DNS 캐시, 쿼리 로그 24시간·통계 7일, 클라이언트 IP 익명화.
 - upstream은 Quad9·Cloudflare의 HTTPS DNS, bootstrap만 9.9.9.9·1.1.1.1을 사용한다.
-- 웹과 같은 Let's Encrypt 인증서의 별도 복사본을 사용한다.
+- 음악 웹과 분리된 `adguardfm.duckdns.org` 전용 Let's Encrypt 인증서의 복사본을 사용한다.
   `/etc/letsencrypt/renewal-hooks/deploy/wavcloud-adguard`가 갱신 시 전용 인증서를 교체하고 DNS 서비스를 재시작한다.
 
 ## 관리자 접속
@@ -79,6 +79,7 @@ sudo /opt/wavcloud-adguard/AdGuardHome --check-config -c /var/lib/wavcloud-adgua
 설정 파일은 서비스를 중지한 상태에서만 수정하고, 검사 후 다시 시작한다.
 실행 중 직접 수정하면 서비스가 파일을 덮어쓸 수 있다.
 `install-20261007.py`는 이번 설치의 기록이며 기존 설치가 있으면 중단한다. 업데이트용으로 재실행하지 않는다.
+`separate-domain-20261007.py`는 전용 도메인으로 이전한 기록이며 이미 전용 사이트가 있으면 중단한다.
 백업: `/opt/cloudmusic/backups/adguard-20261007T123759Z`의 기존 Nginx 설정·영구 방화벽 규칙.
 DNS를 제거할 때는 휴대폰 DNS 설정을 먼저 자동으로 되돌리고 서비스·갱신 hook·Nginx DNS location/제한·853 규칙을 제거한다.
 향후 웹 배포를 그대로 되돌리면 DNS location이 사라질 수 있으므로 현재 DNS 추가 설정을 함께 검토한다.
@@ -97,6 +98,21 @@ DNS를 제거할 때는 휴대폰 DNS 설정을 먼저 자동으로 되돌리고
 - 실제 휴대폰의 설정 적용과 각 앱 광고 차단 여부는 아직 직접 조작하여 검사하지 않았다.
 
 로컬 화면 기록: `outputs/adguard-dashboard-2026-10-07.jpg`. 화면·관리 정보·프로파일 생성물은 Git에서 제외한다.
+
+## 전용 도메인 분리 (2026-10-07)
+
+- `adguardfm.duckdns.org`와 음악 주소는 같은 서버 IP를 사용하며 Nginx 가상 호스트와 인증서는 분리했다.
+- 전용 웹 호스트는 `/dns-query`와 iPhone 프로파일 다운로드만 제공한다. `/control/status` 등은 404다.
+- 기존 음악 주소의 `/dns-query`는 404로 종료했다. Android의 기존 프라이빗 DNS 주소는 새 주소로 변경해야 한다.
+- iPhone의 기존 프로파일은 제거하고 새 프로파일을 설치한다. 기존 음악 서버 다운로드 파일에도 새 DNS 주소를 반영했다.
+- TCP 853은 새 도메인의 인증서와 strict SNI를 사용한다. 기존 Oracle 포트 규칙을 그대로 사용한다.
+- 전용 인증서 만료일은 2027-01-05다. HTTP webroot 인증과 Certbot 자동 갱신을 사용한다.
+- 갱신 모의 실행, 실제 인증서 deploy hook 실행 후 외부 DoH·DoT 정상 조회/차단 4개 검사 통과.
+- 음악 1,043곡·스트리밍 206·다운로드 200 확인. 관리자 서비스는 기존 loopback·SSH 터널 방식이다.
+- 이전 직후 설정 파일 생성은 HTTP 리스너 준비를 기다린다. 준비 실패 시 이전 구성으로 복구한다.
+- 이전 백업: `/opt/cloudmusic/backups/adguard-domain-20261007T132256Z`.
+- 이전 백업에는 실제 설정과 TLS 개인키가 있어 root 전용으로 서버에만 보관한다.
+- 전용 Nginx 사이트는 `/etc/nginx/sites-available/adguardfm`, ACME webroot·프로파일은 `/var/www/adguardfm`이다.
 
 공식 문서: [설정](https://adguard-dns.io/kb/adguard-home/configuration/),
 [암호화 DNS](https://github.com/AdguardTeam/AdGuardHome/wiki/Encryption),
