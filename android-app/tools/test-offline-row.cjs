@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-const source = fs.readFileSync('android-app/web-src/scripts/library-view.js', 'utf8');
+const source = fs.readFileSync('android-app/web-src/scripts/library-ui.js', 'utf8');
 const start = source.indexOf('async function uiRefreshOfflineBadge(');
-const end = source.indexOf('const uiOriginalRows =', start);
+const end = source.length;
 assert.ok(start >= 0 && end > start);
 
 const saved = new Set(['song']);

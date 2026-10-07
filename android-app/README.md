@@ -19,9 +19,13 @@ JDK와 SDK를 설치한 뒤 `JAVA_HOME`과 `ANDROID_HOME`을 설정하고 빌드
 & .\work\build.bat
 ```
 
-스크립트는 화면 생성, JavaScript·Android 검사, APK 빌드를 차례로 실행하고 `outputs/WavCloud-Android-<버전>-debug.apk`를 만듭니다.
+스크립트는 화면 생성, JavaScript·Android 검사, 릴리스 APK 빌드를 차례로 실행하고 `outputs/WavCloud-Android-<버전>-release.apk`를 만듭니다.
+기본값은 `release-personal`입니다. 디버그 APK가 필요하면 `& .\work\build.bat debug`를 실행합니다.
 
-`app/debug.keystore`가 있으면 기존 디버그 APK와 같은 키로 서명합니다. 다른 PC에서도 설치된 앱 위에 업데이트하려면 이 파일을 Git과 별도로 안전하게 옮기세요. 없으면 빌드 스크립트가 새 디버그 키를 만들므로 기존 앱과 서명이 달라집니다.
+`app/debug.keystore`가 있으면 기존 APK와 같은 키로 서명합니다. 개인용 릴리스도 이 키를 사용하며,
+디버깅은 비활성화하고 R8 코드·리소스 최적화를 적용합니다. 다른 PC에서 설치된 앱 위에 업데이트하려면
+이 파일을 Git과 별도로 옮기세요. 없으면 새 키를 만들므로 기존 앱과 서명이 달라집니다.
+별도 배포 키를 쓰는 릴리스와 AAB 설정은 [빌드 종류 안내](../docs/BUILD_VARIANTS.md)에 있습니다.
 
 Android 앱의 오프라인 음원은 앱 내부 저장소에 보관하며 Media3가 직접 재생합니다. 이전 버전의 WebView 캐시에 저장된 음원은 오프라인 목록을 열 때 앱 저장소로 순차적으로 이전됩니다.
 
@@ -40,3 +44,8 @@ Android 앱의 오프라인 음원은 앱 내부 저장소에 보관하며 Media
 중복 다운로드와 Android 캐시 이전의 동시 실행을 막고, 실패한 이전의 재시도와 다운로드 중 삭제를 처리합니다.
 검색·재생목록·저장됨 목록에서도 저장 표시를 갱신합니다.
 검증 결과와 남은 개선 과제는 [2026-10-07 리팩토링 결과](../docs/REFACTOR_REVIEW_2026-10-07.md)에 있습니다.
+
+0.1.34에서는 압축 런타임과 화면 메서드 재정의를 제거하고 `LibraryView`, `PlayerView`, `MiniPlayerView`를
+통합했습니다. 브라우저 재생과 Android 재생은 별도 클래스로 구현합니다. 시간 갱신 때 저장 여부·메타데이터·
+커버를 반복 조회하지 않으며, 새 업로드 폴더 이름도 앱 내부 창에서 입력합니다.
+[완료 보고서](../docs/REFACTOR_COMPLETION_2026-10-07.md)에 실제 운영 결과와 검증 한계를 정리했습니다.

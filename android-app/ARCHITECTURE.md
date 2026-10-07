@@ -12,8 +12,10 @@
 
 ## 재생 경계
 
-- `tools/native-bridge.js`는 웹 플레이어 명령과 상태를 Android 형식으로 변환한다.
-- Android WebView에서는 `runtime.js`의 브라우저 오디오와 브라우저 MediaSession을 시작하지 않는다. 대기열·상태 모델만 공유하고 재생은 Media3가 담당한다.
+- `audio-player.js`의 `AudioPlayer`는 상태·대기열 모델과 브라우저 재생을 제공한다.
+- `android-player.js`의 `AndroidAudioPlayer`는 명령과 상태를 Media3 계약으로 변환한다.
+  `playback-runtime.js`가 환경에 맞는 클래스를 선택하므로 실행 중 메서드를 바꾸지 않는다.
+- Android WebView에서는 브라우저 Audio·MediaSession·네트워크 감시를 시작하지 않는다.
 - `NativePlayerBridge.kt`는 명령을 Media3 `Player`에 적용한다.
 - `QueueUpdatePlanner.kt`는 대기열 변경을 추가·이동·삭제로 계산한다. 재생 중 대기열 수정 시 전체 재생목록을 다시 준비하지 않는다.
 - `PlayerStateDispatcher.kt`는 Media3 상태를 전체 상태와 500ms 진행 상태로 나눠 웹에 전달한다.
@@ -33,8 +35,14 @@
 - 목록 렌더링은 `trackRenderVersion`을 확인한다. 오프라인 파일 조회를 기다리는 동안 탭이나 상세 화면이 바뀌면 이전 렌더링을 중단한다.
 - `FileChooserBridge.kt`는 HTML 파일 입력과 Android 파일 선택기를 연결한다. 새 선택 요청, 선택 취소, 액티비티 종료 시 대기 중인 콜백을 정리한다.
 - 대기열 화면의 다음 재생 순서는 `web-src/scripts/cloud-dark.js`의 `cloudUpcomingQueue`가 결정한다. 항목의 `data-index`는 실제 대기열 인덱스를 유지해 순서 변경과 삭제에 사용한다.
-- 앨범·폴더 기능은 `library-view.js`, 플레이어·대기열 기능은 `player-view.js`에서 처리한다.
-- `library-feedback.js`는 재생목록 창과 스캔 진행 카드의 DOM을 만든다. `runtime.js`의 라이브러리 메서드가 이 함수들을 호출하며, 서버의 `/api/tracks/scan/start`와 `/scan/status`로 실제 진행 상황을 확인한다.
+- `library-view.js`의 `LibraryView`, `player-view.js`의 `PlayerView`, `mini-player-view.js`의
+  `MiniPlayerView`가 최종 동작을 직접 정의한다. 화면 메서드의 프로토타입 재정의는 없다.
+- `library-ui.js`는 목록 창·오프라인 배지·정렬 규칙, `artwork-view.js`는 커버 표시,
+  `upload-dialog.js`는 업로드와 앱 내부 폴더 입력 창을 담당한다.
+- 위치 갱신은 `uiUpdatePlaybackProgress`로 처리한다. 곡·재생·설정 변경 때만 나머지 화면을 갱신하고,
+  오프라인 조회는 곡 변경·화면 열기·저장·삭제 때 수행한다. 늦은 조회는 버전과 곡 ID를 확인한다.
+- `library-feedback.js`는 재생목록 창과 스캔 진행 카드를 만든다. `LibraryView`에서 호출하고,
+  `/api/tracks/scan/start`와 `/scan/status`로 실제 진행 상황을 확인한다.
 - 커버 URL 변경은 `artwork-catalog.json`만 수정한다.
 - Android 재생 명령이나 상태 필드를 바꿀 때는 JavaScript와 Kotlin 양쪽 계약을 함께 변경한다.
 - 대기열 변경은 웹의 `player:queue-changed` 이벤트 한 곳에서 네이티브로 전송한다. “다음에 재생”도 이 경로를 사용한다.
@@ -56,5 +64,6 @@
 - `test-api-client.cjs`: 미디어 URL 인코딩, API 응답 검증, 로그인 만료, 통신 제한 시간 검사
 - `test-artwork-catalog-load.cjs`: 원격 목록이 멈춰도 내장 목록으로 돌아오는지 검사
 - `test-queue-display.cjs`: 현재 곡 이후 순서, 순서 변경, 전체 반복, 셔플 안내 검사
+- `test-player-updates.cjs`: 200회 위치 갱신, 메타데이터·커버·오프라인 조회 횟수, 탐색 드래그와 늦은 조회 검사
 
 `work/build.bat`은 검사와 APK 빌드가 끝난 뒤 `outputs/`에 버전명이 들어간 APK를 복사하고 SHA-256을 출력한다.

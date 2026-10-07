@@ -36,6 +36,19 @@ assert.deepEqual(JSON.parse(JSON.stringify(context.uiLoadPlaylists())), [{ name:
   assert.equal(cacheWrites, 1);
   assert.equal(library.trackRequest, null);
 
+  let readyAttempts = 0;
+  context.setTimeout = callback => { callback(); return 1; };
+  context.w.getTracks = async () => {
+    if (++readyAttempts < 3) throw Object.assign(new Error('starting'), { code: 'LIBRARY_NOT_READY' });
+    return [];
+  };
+  const cold = { ...library, tracks: [], libraryLoaded: false, trackListEl: {} };
+  const readiness = context.uiLoadTracks(cold);
+  assert.equal(context.uiLoadTracks(cold), readiness);
+  await readiness;
+  assert.equal(readyAttempts, 3);
+  assert.equal(cold.libraryLoaded, true, 'an empty catalog is successful only after readiness');
+
   let downloads = 0, resolveDownload;
   const notices = [];
   context.P = message => notices.push(message);
@@ -54,23 +67,15 @@ assert.deepEqual(JSON.parse(JSON.stringify(context.uiLoadPlaylists())), [{ name:
   assert.match(notices.at(-1), /다시 시도/);
 
   const viewSource = fs.readFileSync('android-app/web-src/scripts/library-view.js', 'utf8');
-  context.W = function() {};
   context.uiTrackOrderContext = () => null;
-  context.uiOriginalReorderTracks = () => { throw new Error('Filtered tracks must not replace the library'); };
-  let start = viewSource.indexOf('W.prototype.reorderTracks = function');
-  let end = viewSource.indexOf('\n};', start) + 3;
-  vm.runInContext(viewSource.slice(start, end), context);
-  context.W.prototype.reorderTracks.call({ searchQuery: 'song', currentMenuTab: 'tracks' }, [track], 0, 0);
-  context.W.prototype.reorderTracks.call({ searchQuery: '', currentMenuTab: 'offline' }, [track], 0, 0);
-
+  vm.runInContext(viewSource + '\nglobalThis.LibraryView=LibraryView;',context);
+  context.LibraryView.prototype.reorderTracks.call({searchQuery:'song',currentMenuTab:'tracks'},[track],0,0);
+  context.LibraryView.prototype.reorderTracks.call({searchQuery:'',currentMenuTab:'offline'},[track],0,0);
   let finishLookup;
   context.A.isTrackCached = () => new Promise(resolve => { finishLookup = resolve; });
-  start = viewSource.indexOf('W.prototype.renderOfflineList = async function');
-  end = viewSource.indexOf('\n};', start) + 3;
-  vm.runInContext(viewSource.slice(start, end), context);
   const list = { replaceChildren() {}, appendChild() { throw new Error('Stale offline rows overwrote the new tab'); } };
   const view = { trackRenderVersion: 1, tracks: [track], trackListEl: list, searchQuery: '' };
-  const pendingRender = context.W.prototype.renderOfflineList.call(view);
+  const pendingRender = context.LibraryView.prototype.renderOfflineList.call(view);
   view.trackRenderVersion++;
   finishLookup(true);
   await pendingRender;

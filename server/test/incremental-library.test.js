@@ -1,0 +1,95 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const mm = require('music-metadata');
+const { config } = require('../dist/config');
+const metadata = require('../dist/services/metadata');
+const { scanJobs, libraryStatus } = require('../dist/services/library-manager');
+const { readSnapshot } = require('../dist/services/metadata-snapshots');
+test('incremental scans, restart restoration, failed scans and concurrent uploads preserve the library', async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(),'wavcloud-index-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const originalParse=mm.parseFile;
+  t.after(()=>{mm.parseFile=originalParse;});
+  config.MUSIC_DIR=root;
+  config.LIBRARY_CACHE_DIR=path.join(root,'cache');
+  const username='index-test';
+  const directory=path.join(root,username);
+  await fs.mkdir(directory);
+  const first=path.join(directory,'first.flac');
+  await fs.writeFile(first,'fake');
+  let calls=0, report;
+  mm.parseFile=async()=>{calls++;return{common:{title:'日本語',artist:'Artist'},format:{duration:10}};};
+  assert.equal((await metadata.scanMusicDirectory(username,directory)).length,1);
+  assert.equal(calls,1);
+  await metadata.scanMusicDirectory(username,directory,progress=>{report=progress;});
+  assert.equal(calls,1,'unchanged files must not parse metadata again');
+  assert.equal(report.reused,1);
+  await fs.utimes(first,new Date(),new Date(Date.now()+10000));
+  await metadata.scanMusicDirectory(username,directory);
+  assert.equal(calls,2,'modified files must be parsed');
+  await fs.writeFile(path.join(directory,'cover.jpg'),'cover');
+  const withCover=await metadata.scanMusicDirectory(username,directory);
+  assert.equal(calls,3,'a new external cover must invalidate cached artwork metadata');
+  assert.equal(withCover[0].hasArtwork,true);
+  const probe=execFileSync(process.execPath,['-e',
+    'const m=require(process.argv[1]);m.restoreLibrary(process.argv[2],process.argv[3]).then(ok=>console.log(JSON.stringify({ok,count:m.getCachedTracks(process.argv[2]).length,state:m.getLibraryState(process.argv[2])})))',
+    require.resolve('../dist/services/metadata'),username,directory],{
+      env:{...process.env,MUSIC_DIR:root,LIBRARY_CACHE_DIR:config.LIBRARY_CACHE_DIR},encoding:'utf8'});
+  const restored=JSON.parse(probe.trim().split('\n').at(-1));
+  assert.equal(restored.count,1);assert.equal(restored.ok,true);assert.equal(restored.state.fromSnapshot,true);
+  await assert.rejects(metadata.scanMusicDirectory(username,path.join(root,'missing')));
+  assert.equal(metadata.getCachedTracks(username).length,1);
+
+  const second=path.join(directory,'second.flac'),upload=path.join(directory,'upload.flac');
+  await fs.writeFile(second,'second');
+  let unblock, started;
+  const waiting=new Promise(resolve=>{started=resolve;});
+  mm.parseFile=async file=>{
+    calls++;
+    if(file===second){started();await new Promise(resolve=>{unblock=resolve;});}
+    return{common:{title:path.basename(file),artist:'Artist'},format:{duration:10}};
+  };
+  const job=scanJobs.start(username,directory);
+  await waiting;
+  assert.equal(scanJobs.start(username,directory),job,'startup and HTTP scans must share their running job');
+  await fs.writeFile(upload,'uploaded');
+  await metadata.indexUploadedTracks(username,[upload]);
+  unblock();
+  const result=await job.promise;
+  assert.equal(result.length,3);
+  assert.equal((await readSnapshot(config.LIBRARY_CACHE_DIR,username,directory)).entries.length,3);
+  assert.equal(libraryStatus(username).libraryReady,true);
+  mm.parseFile=async()=>({common:{title:'track'},format:{duration:10}});
+  await fs.rm(first);
+  const afterRemoval=await metadata.scanMusicDirectory(username,directory);
+  assert.equal(afterRemoval.length,2,'a successful scan must remove deleted files');
+});
+test('cold library responds with readiness instead of a false empty success', async t => {
+  const fastify=require('fastify');
+  const auth=require('../dist/middleware/auth');
+  const originalAuth=auth.authMiddleware;
+  const originalParse=mm.parseFile;
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'wavcloud-cold-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  t.after(()=>{auth.authMiddleware=originalAuth;mm.parseFile=originalParse;});
+  const username='cold-test';config.MUSIC_DIR=root;config.LIBRARY_CACHE_DIR=path.join(root,'cache');
+  const directory=path.join(root,username);await fs.mkdir(directory);await fs.writeFile(path.join(directory,'cold.flac'),'cold');
+  auth.authMiddleware=async request=>{request.user={username};};
+  const app=fastify();t.after(()=>app.close());
+  await app.register(require('../dist/routes/tracks').default);
+  const cold=await app.inject('/');assert.equal(cold.statusCode,503);assert.equal(cold.json().code,'LIBRARY_NOT_READY');
+  let started,finish;const waiting=new Promise(resolve=>{started=resolve;});
+  mm.parseFile=async()=>{started();await new Promise(resolve=>{finish=resolve;});return{common:{title:'Cold'},format:{duration:10}};};
+  const job=scanJobs.start(username,directory);await waiting;
+  const request=await app.inject({method:'POST',url:'/scan/start'});
+  assert.equal(request.json().id,job.state.id);
+  assert.equal((await app.inject('/')).statusCode,503);
+  finish();await job.promise;
+  const ready=await app.inject('/');assert.equal(ready.statusCode,200);assert.equal(ready.json().length,1);
+  assert.equal((await app.inject('/scan/status')).json().libraryReady,true);
+});

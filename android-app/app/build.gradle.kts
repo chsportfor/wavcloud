@@ -13,8 +13,8 @@ android {
         applicationId = "org.duckdns.wavcloud"
         minSdk = 26
         targetSdk = 36
-        versionCode = 34
-        versionName = "0.1.33"
+        versionCode = 35
+        versionName = "0.1.34"
     }
 
     signingConfigs {
@@ -27,6 +27,15 @@ android {
                 keyPassword = "android"
             }
         }
+        val releaseKey = System.getenv("WAVCLOUD_RELEASE_KEYSTORE")
+        if (!releaseKey.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseKey)
+                storePassword = System.getenv("WAVCLOUD_RELEASE_STORE_PASSWORD")
+                keyAlias = System.getenv("WAVCLOUD_RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("WAVCLOUD_RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -34,7 +43,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            isMinifyEnabled = false
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = if (providers.gradleProperty("personalRelease").orNull == "true") {
+                signingConfigs.getByName("debug")
+            } else {
+                signingConfigs.findByName("release")
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

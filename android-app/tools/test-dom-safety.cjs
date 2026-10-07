@@ -3,7 +3,7 @@ const vm = require('vm');
 const assert = require('assert/strict');
 
 const helper = fs.readFileSync('android-app/web-src/scripts/dom-safety.js', 'utf8');
-const runtime = fs.readFileSync('android-app/web-src/scripts/runtime.js', 'utf8');
+const runtime = ['library-view','player-view','mini-player-view','upload-dialog'].map(name=>fs.readFileSync('android-app/web-src/scripts/'+name+'.js','utf8')).join('\n');
 const context = {};
 vm.createContext(context);
 vm.runInContext(helper, context);

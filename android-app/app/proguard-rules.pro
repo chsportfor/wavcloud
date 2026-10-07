@@ -1,3 +1,3 @@
--keepclassmembers class org.duckdns.wavcloud.NativePlayerBridge {
+-keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }

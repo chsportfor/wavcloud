@@ -14,7 +14,8 @@ const start = html.indexOf(startToken);
 const end = html.lastIndexOf(endToken);
 if (start < 0 || end <= start) throw new Error('Bundled module script is missing');
 const source = html.slice(start + startToken.length, end);
-if (!source.includes('WavCloudAndroid.setQueue')) throw new Error('Native bridge was not bundled');
+if (!source.includes('class AndroidAudioPlayer extends AudioPlayer') || !source.includes('this.native.setQueue')) throw new Error('Native bridge was not bundled');
+if (/\b(?:LibraryView|PlayerView|MiniPlayerView)\.prototype\.\w+\s*=/.test(source)) throw new Error('View prototype overrides must not return');
 if (!source.includes('__wavcloudNativeProgress')) throw new Error('Native progress bridge was not bundled');
 if (!source.includes('WavCloudOffline.download') || !source.includes('__wavcloudOfflineResult')) {
   throw new Error('Native offline bridge was not bundled');

@@ -4,9 +4,9 @@
   "description": "CloudMusic Backend Server",
   "main": "dist/index.js",
   "scripts": {
-    "build": "npm run check",
-    "check": "node scripts/check.js",
-    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.js",
+    "check": "node scripts/build.js --check && node scripts/check.js",
+    "test": "node scripts/build.js && node --test test/*.test.js",
     "start": "node dist/index.js"
   },
   "dependencies": {

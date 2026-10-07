@@ -9,15 +9,15 @@ const context = {
   CustomEvent: class {},
   Image: class { constructor() { images.push(this); } },
   w: { getArtworkUrl: id => '/art/' + id }, uiText: () => ({}),
-  W: function() {}
+  LibraryView: function() {}
 };
-context.W.prototype.getTrackLocation = track => {
+context.LibraryView.prototype.getTrackLocation = track => {
   const parts = track.filePath.split(/[\\/]/);
   return { category: parts.at(-3), album: parts.at(-2) };
 };
 vm.createContext(context);
 vm.runInContext(html.slice(html.indexOf('// BEGIN VERIFIED ARTWORK CATALOG'), html.indexOf('function uiCover(')), context);
-vm.runInContext(html.slice(html.indexOf('function uiEnsureArtwork('), html.indexOf('const uiOriginalState=')), context);
+vm.runInContext(fs.readFileSync('android-app/web-src/scripts/artwork-view.js','utf8'), context);
 (async () => {
   vm.runInContext(`uiApplyRemoteArtwork({
     'DJMAX Album///V EXTENSION 2': 'https://remote.example.test/djmax.jpg',

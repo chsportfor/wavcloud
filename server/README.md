@@ -1,12 +1,12 @@
 # WavCloud server
 
-`dist/` is a snapshot of the JavaScript currently deployed at `/opt/cloudmusic/server/dist`.
-The original TypeScript sources were absent from the server when this snapshot was made,
-so the JavaScript is maintained directly until the TypeScript project is recovered.
+Maintain `src/`, the readable CommonJS JavaScript reconstructed from the deployed runtime.
+The original TypeScript project was not found. `node scripts/build.js` validates source syntax
+and generates `dist/`; `node scripts/build.js --check` verifies the generated files exactly match.
 The server's `.env` and music files are not included.
 
-Run `npm test` for file-safety and download-format checks, and `npm run build` for
-syntax validation. Production already has the pinned dependencies from
+Run `npm test` for the server regression suite and `npm run build` to regenerate the runtime.
+Production already has the pinned dependencies from
 `package-lock.json`; `npm ci` is needed on a clean machine.
 
 The server keeps converting uploaded and scanned WAV files to FLAC. Conversion
@@ -30,7 +30,7 @@ the running job. Completed tracks replace the cached library only after a
 successful scan; an inaccessible directory preserves the previous library.
 The existing `POST /api/tracks/scan` still waits and returns the track list.
 
-`services/library-store.js` owns per-user library snapshots and track lookup.
+`services/library-store.js` owns in-memory library snapshots and track lookup.
 It merges uploads made while a scan is running into the completed snapshot,
 and preserves the previous library when a scan fails. `utils/byte-range.js`
 handles single HTTP byte ranges, including suffixes and clipped end positions.
@@ -44,5 +44,14 @@ files are cleaned before returning the failure response.
 Do not deploy `config.js` or `.env` as part of a file-safety change. The
 `scripts/deploy.sh` script checks the expected production hashes, runs the
 server tests, backs up replaced files, and restores them if startup or Nginx
-validation fails. Production currently scans the entire music library before
-opening port 3000; allow roughly two minutes for the startup health check.
+validation fails. Deployment scripts describe specific verified changes; prepare current expected hashes
+and a backup/rollback plan before a new deployment.
+
+Startup restores validated metadata from `LIBRARY_CACHE_DIR` (default `.library-cache` under the server
+working directory), opens the API and refreshes libraries in the background. Startup and HTTP scans
+share `library-manager.js`. Unchanged file size, mtime and external-cover fingerprints reuse metadata.
+Missing music directories preserve restored libraries. A cold library returns 503 with
+`LIBRARY_NOT_READY` until the first successful scan; a failed cold scan returns `LIBRARY_UNAVAILABLE`.
+Scan status includes `libraryReady`, `fromSnapshot` and `reused`. Snapshot writes are serialized
+and published atomically; concurrent uploads are included. Production retained 1,042 tracks and
+returned the library about one second after a verified warm restart.

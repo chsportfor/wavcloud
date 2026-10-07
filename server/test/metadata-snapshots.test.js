@@ -1,0 +1,27 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const { readSnapshot, writeSnapshot, snapshotPath } = require('../dist/services/metadata-snapshots');
+const { generateId } = require('../dist/utils/hash');
+test('snapshots publish atomically, serialize writes and validate ownership/path/schema', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'wavcloud-snapshot-'));
+  t.after(() => fs.rm(directory, {recursive:true,force:true}));
+  const music = path.join(directory,'music');
+  const file = path.join(music,'song.flac');
+  const entry = { size:4,mtimeMs:123,track:{id:generateId(file),title:'日本語',filePath:file,fileSize:4,hasArtwork:false} };
+  await Promise.all([writeSnapshot(directory,'alice',music,[entry]),writeSnapshot(directory,'alice',music,[])]);
+  assert.equal((await readSnapshot(directory,'alice',music)).entries.length,0);
+  await writeSnapshot(directory,'alice',music,[entry]);
+  assert.equal((await readSnapshot(directory,'alice',music)).entries[0].track.title,'日本語');
+  assert.equal(await readSnapshot(directory,'alice',path.join(directory,'another')),null);
+  assert.equal(await readSnapshot(directory,'bob',music),null);
+  const outside=path.join(directory,'outside.flac');
+  await writeSnapshot(directory,'alice',music,[{...entry,track:{...entry.track,id:generateId(outside),filePath:outside}}]);
+  assert.equal(await readSnapshot(directory,'alice',music),null);
+  await fs.writeFile(snapshotPath(directory,'alice'),'{broken');
+  assert.equal(await readSnapshot(directory,'alice',music),null);
+  assert.equal((await fs.readdir(directory)).filter(file=>file.endsWith('.tmp')).length,0);
+});

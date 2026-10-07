@@ -4,6 +4,7 @@
 !/work/build.bat
 /.build-tools/
 node_modules/
+.library-cache/
 /android-app/.gradle/
 /android-app/.kotlin/
 /android-app/build/

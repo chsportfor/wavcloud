@@ -1,6 +1,6 @@
 # 다른 환경에서 WavCloud 작업 이어가기
 
-이 저장소에는 Android 앱 소스, 서버의 현재 실행 JavaScript, 검사 도구와 작업 보고서가 있다.
+이 저장소에는 Android 앱 소스, 서버 개발 JavaScript와 빌드 결과, 검사 도구와 작업 보고서가 있다.
 서버 SSH 개인키, Android 앱 서명키, 운영 `.env`, 음악 파일, APK와 로컬 SDK는 별도 관리한다.
 
 ## 코드 가져오기
@@ -22,7 +22,8 @@ git pull --ff-only origin main
 작업 시작 전에 [구조 설명](../android-app/ARCHITECTURE.md)과
 [2026-10-03 작업 보고서](REFACTOR_REVIEW_2026-10-03.md)를 읽는다.
 화면 소스는 `android-app/web-src/`이며 생성된 `app.html`을 직접 수정하지 않는다.
-서버는 원본 TypeScript가 없어 `server/dist/`의 JavaScript를 유지한다.
+서버는 `server/src/`의 JavaScript를 수정하고 `npm run build`로 `server/dist/`를 생성한다.
+실행 코드를 바탕으로 개발 소스를 재구성했으며 원래의 TypeScript 프로젝트는 발견되지 않았다.
 웹 PWA 원본과 배포 번들은 이 저장소에 없으므로 웹 화면 수정은 서버 배포 파일을 먼저 확인해야 한다.
 
 ## Windows에서 Android APK 빌드
@@ -36,7 +37,8 @@ $env:ANDROID_HOME = 'C:\Android\Sdk'
 & .\work\build.bat
 ```
 
-결과는 `outputs/WavCloud-Android-<버전>-debug.apk`이다.
+결과는 `outputs/WavCloud-Android-<버전>-release.apk`이다. 기본값은 기존 앱 키를 사용하는 개인용 릴리스다.
+디버그 검사 빌드는 `& .\work\build.bat debug`로 실행한다. 별도 서명과 AAB는 [빌드 안내](BUILD_VARIANTS.md)를 참고한다.
 `work/android-tools/`에 도구를 두면 빌드 스크립트가 해당 경로를 우선 사용한다.
 이 PC의 기존 도구는 `C:\Users\JUNGLE\Documents\Codex\2026-09-15\cloud-duckdns-org\work\android-tools`에 있다.
 다른 PC에서는 이 절대 경로 대신 새 환경의 설치 경로를 사용한다.
@@ -84,7 +86,9 @@ WAV→FLAC 변환의 실제 검사는 FFmpeg가 필요하다. 현재 Linux 운�
 `server/scripts/deploy*.sh`는 특정 변경을 적용할 때 사용한 기록이며 공통 배포 명령이 아니다.
 예전 파일 해시, 경로, 새 파일 조건을 검사하므로 현재 서버에 그대로 재실행하지 않는다.
 다음 배포에서는 현재 서버 파일과 변경분을 비교하고, 검사·백업·반영·운영 확인·복구 절차를 준비한다.
-2026-10-03 서버 리팩토링은 이미 적용됐으며 백업 경로는 작업 보고서에 있다.
+2026-10-03 수정과 2026-10-07 시작·스캔 리팩토링은 운영 서버에 적용됐다.
+최종 백업은 `/opt/cloudmusic/backups/startup-refactor-20261007T074214Z`이며
+[완료 보고서](REFACTOR_COMPLETION_2026-10-07.md)에 확인 결과가 있다.
 
 검증 도구 `server/scripts/verify-live-refactor.js`는 운영 서버에서
 `sudo env NODE_PATH=/opt/cloudmusic/server/node_modules node <검증도구의 실제 경로>`로 실행한다.

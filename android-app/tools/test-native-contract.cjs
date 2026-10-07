@@ -2,52 +2,12 @@ const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert/strict');
 
-const runtimeSource = fs.readFileSync('android-app/web-src/scripts/runtime.js', 'utf8');
-const classStart = runtimeSource.indexOf('class _{constructor(){');
-const constructorEnd = runtimeSource.indexOf('setupNetworkWatch(){', classStart);
-assert.ok(classStart >= 0 && constructorEnd > classStart, 'native player constructor must be found');
-const probeContext = {
-  window: { WavCloudAndroid: {} },
-  localStorage: { getItem: () => null },
-  Audio: class { constructor() { throw new Error('Browser audio must not start in Android'); } },
-  v: (object, key, value) => { object[key] = value; }
-};
-vm.createContext(probeContext);
-vm.runInContext(runtimeSource.slice(classStart, constructorEnd) +
-  'setupNetworkWatch(){throw Error("Browser network watcher started")}'+
-  'setupListeners(){throw Error("Browser audio listeners started")}'+
-  'setupMediaSession(){throw Error("Browser media session started")}}'+
-  'globalThis.NativeRuntimeProbe=_;', probeContext);
-assert.equal(new probeContext.NativeRuntimeProbe().audios.length, 0);
-
 const calls = [];
 const listeners = new Map();
 let spectrumLevel = 72;
 let clock = 100;
 const initialTrack = { id: 'one', title: 'First', artist: 'Artist', album: 'Album' };
-const p = {
-  queue: [initialTrack],
-  state: {
-    currentTrack: initialTrack,
-    currentTime: 1,
-    duration: 120,
-    isPlaying: false,
-    isLoading: false,
-    volume: 0.5,
-    repeat: 'none',
-    shuffle: false
-  },
-  getQueue() { return [...this.queue]; },
-  getState() { return this.state; },
-  updateState(next) { this.state = { ...this.state, ...next }; },
-  emitQueueChange() { context.window.dispatchEvent({ type: 'player:queue-changed' }); },
-  setQueue(tracks) { this.queue = [...tracks]; this.emitQueueChange(); },
-  addToQueue(tracks) { this.queue.push(...(Array.isArray(tracks) ? tracks : [tracks])); this.emitQueueChange(); },
-  playNextInQueue(tracks) { this.queue.splice(1, 0, ...(Array.isArray(tracks) ? tracks : [tracks])); this.emitQueueChange(); },
-  removeFromQueue(index) { this.queue.splice(index, 1); this.emitQueueChange(); },
-  reorderQueue(from, to) { this.queue.splice(to, 0, this.queue.splice(from, 1)[0]); this.emitQueueChange(); },
-  clearQueue() { this.queue = []; this.emitQueueChange(); }
-};
+let p;
 const native = new Proxy({}, {
   get(_target, method) {
     if (method === 'getSpectrum') return () => JSON.stringify(new Array(64).fill(spectrumLevel));
@@ -60,20 +20,25 @@ const context = {
     addEventListener(type, listener) { listeners.set(type, listener); },
     dispatchEvent(event) { listeners.get(event.type)?.(event); }
   },
-  p,
   w: { isAuthenticated: () => true, getStreamUrl: id => `/stream/${id}`, getArtworkUrl: id => `/art/${id}` },
   uiResolvedArtworkUrl: track => track.id === 'hq' ? 'https://example.test/hq.jpg' : '',
-  localStorage: { setItem() {} },
+  localStorage: { setItem() {}, getItem: () => null },
+  defineField: (object,key,value) => { object[key]=value; },
+  Audio: class { constructor() { throw Error("Browser audio must not start in Android"); } },
   performance: { now: () => clock },
   CustomEvent: class { constructor(type) { this.type = type; } },
   P() {}
 };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync('android-app/tools/native-bridge.js', 'utf8'), context);
+vm.runInContext(fs.readFileSync('android-app/web-src/scripts/audio-player.js', 'utf8') + '\n' +
+  fs.readFileSync('android-app/web-src/scripts/android-player.js', 'utf8') + '\nglobalThis.NativeRuntimeProbe=AndroidAudioPlayer;', context);
+p = new context.NativeRuntimeProbe();
+assert.equal(p.audios.length,0);
+p.queue=[initialTrack]; p.state.currentTrack=initialTrack; p.state.duration=120;
 const startupOrder = [];
 vm.runInNewContext(fs.readFileSync('android-app/web-src/scripts/bootstrap.js', 'utf8'), {
   document: { readyState: 'complete' },
-  K: class { constructor() { startupOrder.push('ui'); } },
+  AppController: class { constructor() { startupOrder.push('ui'); } },
   window: { WavCloudAndroid: { requestState() { startupOrder.push('state'); } } }
 });
 assert.deepEqual(startupOrder, ['ui', 'state'], 'restore must be requested after the player UI exists');
@@ -170,7 +135,7 @@ await Promise.resolve();
 assert.deepEqual(JSON.parse(calls.at(-1)[1]).map(item => item.id), ['next', 'restored'], 'reordering must reach Android');
 p.clearQueue();
 await Promise.resolve();
-assert.equal(calls.at(-1)[1], '[]', 'clearing must reach Android');
+assert.deepEqual(JSON.parse(calls.at(-1)[1]).map(item=>item.id), ['restored'], 'clearing must preserve only the current track in Android');
 
 context.window.__wavcloudNativeState(JSON.stringify({
   trackId: '', isPlaying: false, isLoading: false, currentTime: 0, duration: 0, volume: 0.7, queue: []

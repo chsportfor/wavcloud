@@ -1,4 +1,27 @@
 @echo off
+set "BUILD_KIND=%~1"
+if not defined BUILD_KIND set "BUILD_KIND=release-personal"
+set "APK_VARIANT=release"
+set "GRADLE_BUILD_TASK=assembleRelease"
+set "SIGNING_OPTION="
+if "%BUILD_KIND%"=="debug" (
+  set "APK_VARIANT=debug"
+  set "GRADLE_BUILD_TASK=assembleDebug"
+)
+if "%BUILD_KIND%"=="release-personal" set "SIGNING_OPTION=-PpersonalRelease=true"
+if "%BUILD_KIND%"=="bundle" set "GRADLE_BUILD_TASK=bundleRelease"
+if not "%BUILD_KIND%"=="debug" if not "%BUILD_KIND%"=="release-personal" if not "%BUILD_KIND%"=="release" if not "%BUILD_KIND%"=="bundle" (
+  echo Usage: build.bat [release-personal^|debug^|release^|bundle]
+  exit /b 1
+)
+if "%BUILD_KIND%"=="release" if not defined WAVCLOUD_RELEASE_KEYSTORE (
+  echo Set WAVCLOUD_RELEASE signing environment variables, or use release-personal for the existing installation key.
+  exit /b 1
+)
+if "%BUILD_KIND%"=="bundle" if not defined WAVCLOUD_RELEASE_KEYSTORE (
+  echo Set WAVCLOUD_RELEASE signing environment variables before generating an upload bundle.
+  exit /b 1
+)
 for %%I in ("%~dp0..") do set "PROJECT_DIR=%%~fI"
 if exist "%PROJECT_DIR%\work\android-tools\jdk\jdk-17.0.20.1+1\bin\java.exe" (
   set "JAVA_HOME=%PROJECT_DIR%\work\android-tools\jdk\jdk-17.0.20.1+1"
@@ -35,6 +58,8 @@ node android-app\tools\check-bundle.mjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-native-contract.cjs
 if errorlevel 1 exit /b %errorlevel%
+node android-app\tools\test-player-updates.cjs
+if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-native-offline.cjs
 if errorlevel 1 exit /b %errorlevel%
 node android-app\tools\test-offline-store.cjs
@@ -59,9 +84,13 @@ node android-app\tools\test-api-client.cjs
 if errorlevel 1 exit /b %errorlevel%
 
 cd /d "%PROJECT_DIR%\android-app"
-call gradlew.bat testDebugUnitTest assembleDebug
+call gradlew.bat testDebugUnitTest %GRADLE_BUILD_TASK% %SIGNING_OPTION%
 if errorlevel 1 exit /b %errorlevel%
 
 cd /d "%PROJECT_DIR%"
-node android-app\tools\package-apk.mjs
+if "%BUILD_KIND%"=="bundle" (
+  echo AAB: android-app\app\build\outputs\bundle\release\app-release.aab
+  exit /b 0
+)
+node android-app\tools\package-apk.mjs %APK_VARIANT%
 if errorlevel 1 exit /b %errorlevel%
