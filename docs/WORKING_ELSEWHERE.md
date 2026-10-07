@@ -1,6 +1,6 @@
 # 다른 환경에서 WavCloud 작업 이어가기
 
-이 저장소에는 Android 앱·웹사이트 소스, 서버 개발 JavaScript와 빌드 결과, 검사·배포 도구와 작업 보고서가 있다.
+이 저장소에는 Android 앱·웹사이트·Windows PC 앱 소스, 서버 개발 JavaScript와 빌드 결과, 검사·배포 도구와 작업 보고서가 있다.
 서버 SSH 개인키, Android 앱 서명키, 운영 `.env`, 음악 파일, APK와 로컬 SDK는 별도 관리한다.
 
 ## 코드 가져오기
@@ -27,6 +27,11 @@ git pull --ff-only origin main
 웹사이트는 `web-app/`의 템플릿·PC 배치·서비스워커와 `android-app/web-src/`의 공통 화면을 사용한다.
 `node web-app/tools/build.mjs`로 웹 배포물을 생성하고 `node --test web-app/tools/test-web.cjs`로 검사한다.
 웹만 수정할 때는 Android SDK와 앱 서명키가 필요하지 않다. [웹 개발·배포 안내](../web-app/README.md)를 따른다.
+
+Windows PC 앱은 `desktop-app/`에 있다. Node.js 22.12 이상과 npm으로
+`cd desktop-app`, `npm ci`, `npm run dist`를 실행한다. Android SDK와 SSH 키는 PC 앱 빌드에 필요하지 않다.
+PC 앱은 운영 웹 UI를 사용하므로 공통 화면 변경은 웹 배포로 적용한다.
+Electron 런타임·창·트레이 변경은 새 PC 설치 파일을 만들어야 한다. [PC 앱 안내](../desktop-app/README.md)를 따른다.
 
 ## Windows에서 Android APK 빌드
 
