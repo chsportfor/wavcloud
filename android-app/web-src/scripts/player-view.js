@@ -76,7 +76,7 @@ class PlayerView {
     e.style.background = `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${s}%, rgba(255,255,255,0.1) ${s}%, rgba(255,255,255,0.1) 100%)`;
   }
   renderQueue() {
-    if (!this.el.classList.contains('show-queue')) {
+    if (!this.queueAlwaysVisible && !this.el.classList.contains('show-queue')) {
       cloudEnhanceQueue.call(this);
       return;
     }

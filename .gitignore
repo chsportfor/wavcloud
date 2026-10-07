@@ -11,6 +11,7 @@ node_modules/
 /android-app/app/build/
 /android-app/app/src/main/assets/app.html
 /android-app/local.properties
+/web-app/dist/
 
 # Local credentials and signing material
 .env

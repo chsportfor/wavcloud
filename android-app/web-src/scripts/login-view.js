@@ -16,11 +16,11 @@ class LoginView {
   render() {
     this.el.innerHTML = `
       <div class="login-card glass">
-        <h1 class="text-gradient">CloudMusic</h1>
+        <h1 class="text-gradient">WavCloud</h1>
         <p style="color: var(--text-secondary); margin-bottom: 24px;">프리미엄 무손실 스트리밍</p>
         <div class="login-error" id="login-error"></div>
-        <input type="text" id="username" placeholder="사용자 아이디" />
-        <input type="password" id="password" placeholder="비밀번호" />
+        <input type="text" id="username" placeholder="사용자 아이디" aria-label="사용자 아이디" autocomplete="username" />
+        <input type="password" id="password" placeholder="비밀번호" aria-label="비밀번호" autocomplete="current-password" />
         <button class="btn" id="login-btn">
           <span>로그인</span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

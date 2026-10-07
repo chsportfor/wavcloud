@@ -1,75 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { buildWebSource, readArtworkCatalog } from './web-source.mjs';
 
 const project = path.resolve(import.meta.dirname, '..');
 const sourceRoot = path.join(project, 'web-src');
 const output = path.join(project, 'app', 'src', 'main', 'assets', 'app.html');
-const catalogPath = path.join(project, 'artwork-catalog.json');
-
-const styleFiles = [
-  'styles/base.css',
-  'styles/clean-ui.css',
-  'styles/cloud-dark.css',
-  'styles/library-feedback.css'
-];
-
-const scriptFiles = [
-  'scripts/dom-safety.js',
-  'scripts/library-data.js',
-  'scripts/api-client.js',
-  'scripts/offline-store.js',
-  'scripts/runtime-support.js',
-  'scripts/audio-player.js',
-  'scripts/login-view.js',
-  'scripts/ui-primitives.js',
-  'scripts/artwork.js',
-  'scripts/artwork-view.js',
-  'scripts/library-ui.js',
-  'scripts/library-view.js',
-  'scripts/player-view.js',
-  'scripts/mini-player-view.js',
-  'scripts/cloud-dark.js',
-  'scripts/library-feedback.js',
-  'scripts/upload-dialog.js',
-  'scripts/android-player.js',
-  'scripts/playback-runtime.js',
-  'scripts/app-controller.js',
-  'scripts/native-offline.js',
-  'scripts/bootstrap.js'
-];
 
 const STYLE_TOKEN = '<!-- WAVCLOUD_STYLES -->';
 const SCRIPT_TOKEN = '/* WAVCLOUD_SCRIPTS */';
-const CATALOG_TOKEN = '__WAVCLOUD_ARTWORK_CATALOG__';
-
-function readArtworkCatalog() {
-  const entries = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
-  if (!Array.isArray(entries)) throw new Error('artwork-catalog.json must contain an array');
-  const catalog = {};
-  for (const entry of entries) {
-    const key = `${entry.category}///${entry.album}`;
-    if (!entry.category || !entry.album || typeof entry.url !== 'string' || !/^https:\/\//i.test(entry.url)) {
-      throw new Error(`Invalid artwork catalog entry: ${key}`);
-    }
-    if (catalog[key]) throw new Error(`Duplicate artwork catalog entry: ${key}`);
-    if (entry.width != null && entry.height != null && Math.min(entry.width, entry.height) < 600) {
-      throw new Error(`Artwork is below 600px: ${key}`);
-    }
-    catalog[key] = entry.url;
-  }
-  return catalog;
-}
 
 function build() {
   const template = fs.readFileSync(path.join(sourceRoot, 'document.html'), 'utf8');
   if (!template.includes(STYLE_TOKEN) || !template.includes(SCRIPT_TOKEN)) {
     throw new Error('web-src/document.html is missing a build token');
   }
-  const css = styleFiles.map(file => fs.readFileSync(path.join(sourceRoot, file), 'utf8')).join('');
-  let js = scriptFiles.map(file => fs.readFileSync(path.join(sourceRoot, file), 'utf8')).join('');
-  const catalog = readArtworkCatalog();
-  if (!js.includes(CATALOG_TOKEN)) throw new Error('The artwork catalog token is missing from web-src');
-  js = js.replace(CATALOG_TOKEN, JSON.stringify(catalog, null, 2));
+  const { css, js: shared, bootstrap } = buildWebSource('android');
+  const js = shared + bootstrap;
   return template.replace(STYLE_TOKEN, css).replace(SCRIPT_TOKEN, js);
 }
 

@@ -67,7 +67,7 @@ function cloudEnhanceQueue() {
   const upcoming = cloudUpcomingQueue(queue, state);
   const total = this.el.querySelector('.cloud-queue-total');
   if (total) total.textContent = `다음 ${upcoming.indices.length}곡`;
-  if (!this.el.classList.contains('show-queue')) return;
+  if (!this.queueAlwaysVisible && !this.el.classList.contains('show-queue')) return;
   const count = this.el.querySelector('#queue-count');
   if (count) count.textContent = String(upcoming.indices.length);
   const hint = this.el.querySelector('.cloud-queue-hint');

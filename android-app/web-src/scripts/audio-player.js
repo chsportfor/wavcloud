@@ -21,7 +21,8 @@ class AudioPlayer {
       ((s.crossOrigin = 'anonymous'), (s.preload = 'auto'));
     });
     const e = localStorage.getItem('cm_volume'),
-      t = e !== null ? parseFloat(e) : 0.5;
+      storedVolume = e !== null ? Number(e) : 0.5,
+      t = Number.isFinite(storedVolume) && storedVolume >= 0 && storedVolume <= 1 ? storedVolume : 0.5;
     this.audios.forEach((s) => {
       s.volume = t;
     });

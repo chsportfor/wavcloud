@@ -66,7 +66,7 @@ async function showUploadDialog(library) {
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <p>음악 파일을 여기에 드래그 앤 드롭하거나 <span style="color: #8b5cf6; cursor: pointer; text-decoration: underline;" id="upload-browse">파일 찾기</span></p>
+            <p>음악 파일을 여기에 드래그 앤 드롭하거나 <button type="button" style="color: #8b5cf6; cursor: pointer; text-decoration: underline; background: none; border: 0; padding: 0; font: inherit;" id="upload-browse">파일 찾기</button></p>
             <p style="font-size: 0.75rem; color: var(--text-secondary);">지원 형식: .wav, .mp3, .flac, .ogg, .m4a 등</p>
             <input type="file" id="upload-file-input" multiple accept="audio/*" style="display: none;" />
           </div>

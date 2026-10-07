@@ -1,4 +1,10 @@
 // Validate persisted data before views use string and array methods.
+function uiTrackMatchesSearch(track, query) {
+  const text = String(query || '').trim().toLocaleLowerCase();
+  return !text || [track.title, track.artist, track.album].some(value =>
+    typeof value === 'string' && value.toLocaleLowerCase().includes(text));
+}
+
 function uiIsTrack(track) {
   return (
     track !== null &&

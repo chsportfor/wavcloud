@@ -699,6 +699,13 @@ class LibraryView {
     );
   }
   async renderTrackItemsList(tracks, target) {
+    if (this.searchQuery) {
+      tracks = tracks.filter(track => uiTrackMatchesSearch(track, this.searchQuery));
+      if (!tracks.length) {
+        (target || this.trackListEl).replaceChildren(uiText('p', 'ui-empty', '검색 결과가 없습니다.'));
+        return;
+      }
+    }
     if ((await this.renderTrackRows(tracks, target)) === false) return;
     const list = target || this.trackListEl;
     const isReorderableDetail =

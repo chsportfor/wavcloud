@@ -1,6 +1,6 @@
 # 다른 환경에서 WavCloud 작업 이어가기
 
-이 저장소에는 Android 앱 소스, 서버 개발 JavaScript와 빌드 결과, 검사 도구와 작업 보고서가 있다.
+이 저장소에는 Android 앱·웹사이트 소스, 서버 개발 JavaScript와 빌드 결과, 검사·배포 도구와 작업 보고서가 있다.
 서버 SSH 개인키, Android 앱 서명키, 운영 `.env`, 음악 파일, APK와 로컬 SDK는 별도 관리한다.
 
 ## 코드 가져오기
@@ -24,7 +24,9 @@ git pull --ff-only origin main
 화면 소스는 `android-app/web-src/`이며 생성된 `app.html`을 직접 수정하지 않는다.
 서버는 `server/src/`의 JavaScript를 수정하고 `npm run build`로 `server/dist/`를 생성한다.
 실행 코드를 바탕으로 개발 소스를 재구성했으며 원래의 TypeScript 프로젝트는 발견되지 않았다.
-웹 PWA 원본과 배포 번들은 이 저장소에 없으므로 웹 화면 수정은 서버 배포 파일을 먼저 확인해야 한다.
+웹사이트는 `web-app/`의 템플릿·PC 배치·서비스워커와 `android-app/web-src/`의 공통 화면을 사용한다.
+`node web-app/tools/build.mjs`로 웹 배포물을 생성하고 `node --test web-app/tools/test-web.cjs`로 검사한다.
+웹만 수정할 때는 Android SDK와 앱 서명키가 필요하지 않다. [웹 개발·배포 안내](../web-app/README.md)를 따른다.
 
 ## Windows에서 Android APK 빌드
 

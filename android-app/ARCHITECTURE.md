@@ -2,6 +2,11 @@
 
 ## 빌드 흐름
 
+`web-src/`는 Android와 웹사이트의 공통 화면·기능 소스다. `tools/web-source.mjs`가
+공통 모듈 순서를 관리하며, Android는 Media3·네이티브 오프라인 모듈을 추가한다.
+웹의 `web-app/tools/build.mjs`는 같은 공통 코드에 PC 배치·단축키·서비스워커 등록을 추가한다.
+웹 빌드·배포는 [웹 개발 안내](../web-app/README.md)를 참고한다.
+
 1. `web-src/`의 CSS와 JavaScript를 `tools/sync-web.mjs`가 결합한다.
 2. `artwork-catalog.json`을 검증하고 앱 내장 앨범아트 목록으로 삽입한다.
 3. 생성 결과를 `app/src/main/assets/app.html`에 기록한다.
