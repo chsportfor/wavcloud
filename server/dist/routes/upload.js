@@ -76,12 +76,13 @@ async function uploadRoutes(fastify) {
   });
   // POST /api/upload — Upload music file(s)
   fastify.post('/', async (request, reply) => {
+    const stagedFiles = [];
     try {
       const username = request.user.username;
+      const root = getMusicRoot(username);
       const parts = request.parts();
       let category = '';
       let album = '';
-      const uploadedFiles = [];
       for await (const part of parts) {
         if (part.type === 'field') {
           if (part.fieldname === 'category' || part.fieldname === 'album') {
@@ -92,18 +93,6 @@ async function uploadRoutes(fastify) {
             else album = part.value.trim();
           }
         } else if (part.type === 'file') {
-          if (!category) {
-            return reply.status(400).send({ error: 'Category is required' });
-          }
-          const root = getMusicRoot(username);
-          const targetDir = pathModule.resolve(root, category, album);
-          if (!isSafeSubPath(root, targetDir)) {
-            return reply.status(400).send({ error: 'Invalid upload directory' });
-          }
-          // Ensure directory exists
-          if (!fsModule.existsSync(targetDir)) {
-            fsModule.mkdirSync(targetDir, { recursive: true });
-          }
           const safeFilename = pathModule.basename(String(part.filename || '').replace(/\\/g, '/'));
           if (!safeFilename || safeFilename === '.' || safeFilename === '..') {
             return reply.status(400).send({ error: 'Invalid filename' });
@@ -115,32 +104,39 @@ async function uploadRoutes(fastify) {
           ) {
             return reply.status(415).send({ error: 'Unsupported audio format' });
           }
-          const filePath = pathModule.join(targetDir, safeFilename);
-          const temporary = pathModule.join(targetDir, `.${randomUUID()}.upload`);
-          try {
-            const writeStream = fsModule.createWriteStream(temporary, { flags: 'wx', mode: 0o600 });
-            await promisesModule.pipeline(part.file, writeStream);
-            if (part.file.truncated) {
-              throw Object.assign(new Error('Upload exceeds the file size limit'), {
-                statusCode: 413,
-              });
-            }
-            if ((await fsModule.promises.stat(temporary)).size === 0) {
-              throw Object.assign(new Error('Uploaded audio is empty'), { statusCode: 400 });
-            }
-            const finalFilePath = await publishUpload(temporary, filePath);
-            uploadedFiles.push(finalFilePath);
-            await metadataModule.indexUploadedTracks(username, [finalFilePath]);
-          } finally {
-            await fsModule.promises.unlink(temporary).catch((error) => {
-              if (error.code !== 'ENOENT')
-                fastify.log.warn(error, 'Could not remove upload temp file');
+          const temporary = pathModule.join(root, `.${randomUUID()}.upload`);
+          stagedFiles.push({ temporary, safeFilename });
+          const writeStream = fsModule.createWriteStream(temporary, { flags: 'wx', mode: 0o600 });
+          await promisesModule.pipeline(part.file, writeStream);
+          if (part.file.truncated) {
+            throw Object.assign(new Error('Upload exceeds the file size limit'), {
+              statusCode: 413,
             });
+          }
+          if ((await fsModule.promises.stat(temporary)).size === 0) {
+            throw Object.assign(new Error('Uploaded audio is empty'), { statusCode: 400 });
           }
         }
       }
-      if (uploadedFiles.length === 0) {
+      if (!category) {
+        return reply.status(400).send({ error: 'Category is required' });
+      }
+      if (stagedFiles.length === 0) {
         return reply.status(400).send({ error: 'No files uploaded' });
+      }
+      const targetDir = pathModule.resolve(root, category, album);
+      if (!isSafeSubPath(root, targetDir)) {
+        return reply.status(400).send({ error: 'Invalid upload directory' });
+      }
+      if (!fsModule.existsSync(targetDir)) {
+        fsModule.mkdirSync(targetDir, { recursive: true });
+      }
+      const uploadedFiles = [];
+      for (const { temporary, safeFilename } of stagedFiles) {
+        const filePath = pathModule.join(targetDir, safeFilename);
+        const finalFilePath = await publishUpload(temporary, filePath);
+        uploadedFiles.push(finalFilePath);
+        await metadataModule.indexUploadedTracks(username, [finalFilePath]);
       }
       return reply.send({
         success: true,
@@ -159,6 +155,13 @@ async function uploadRoutes(fastify) {
       }
       fastify.log.error(err);
       return reply.status(500).send({ error: 'Upload failed' });
+    } finally {
+      for (const { temporary } of stagedFiles) {
+        await fsModule.promises.unlink(temporary).catch((error) => {
+          if (error.code !== 'ENOENT')
+            fastify.log.warn(error, 'Could not remove upload temp file');
+        });
+      }
     }
   });
 }

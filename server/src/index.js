@@ -11,10 +11,25 @@ const downloadModule = require('./routes/download').default;
 const uploadModule = require('./routes/upload').default;
 const { restoreLibraries, refreshLibraries } = require('./services/library-manager');
 const server = fastifyModule({ logger: true });
+function isAllowedOrigin(origin) {
+  // Native/Android WebView (file:// sends 'null') and non-browser clients omit or send null Origin.
+  if (!origin || origin === 'null') return true;
+  if (configModule.config.CORS_ORIGINS.includes(origin)) return true;
+  try {
+    const { protocol, hostname } = new URL(origin);
+    return (
+      (protocol === 'http:' || protocol === 'https:') &&
+      (hostname === 'localhost' || hostname === '127.0.0.1')
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function start() {
   try {
     await server.register(corsModule, {
-      origin: true,
+      origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
       credentials: true,
     });
     await server.register(multipartModule, {

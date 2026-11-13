@@ -2,11 +2,11 @@
 
 exports.default = streamRoutes;
 const fsModule = require('fs');
-const pathModule = require('path');
 const metadataModule = require('../services/metadata');
 const authModule = require('../middleware/auth');
 const { getAudioFormat } = require('../utils/audio-format');
 const { parseByteRange } = require('../utils/byte-range');
+const { isXAccelEnabled, sendAccelRedirect } = require('../utils/x-accel');
 async function streamRoutes(fastify) {
   fastify.addHook('preHandler', authModule.authMiddleware);
   fastify.get('/:id', async (request, reply) => {
@@ -23,15 +23,9 @@ async function streamRoutes(fastify) {
       const range = request.headers.range;
       const contentType = getAudioFormat(track.filePath).mime;
       fastify.log.info(`Stream requested for track ${id}, range: ${range}`);
-      if (process.env.USE_X_ACCEL === 'true') {
-        const musicDir = process.env.MUSIC_DIR || '/mnt/music';
-        const relativePath = pathModule.relative(musicDir, track.filePath);
-        const encodedPath = relativePath.split(pathModule.sep).map(encodeURIComponent).join('/');
-        fastify.log.info(`Redirecting via X-Accel-Redirect to /internal-media/${encodedPath}`);
-        return reply
-          .header('X-Accel-Redirect', `/internal-media/${encodedPath}`)
-          .header('Content-Type', contentType)
-          .send();
+      if (isXAccelEnabled()) {
+        fastify.log.info(`Redirecting via X-Accel-Redirect for track ${id}`);
+        return sendAccelRedirect(reply, track.filePath, contentType);
       }
       const parsed = parseByteRange(range, fileSize);
       if (parsed) {

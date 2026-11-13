@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { ensureFlacForScan, publishUpload } = require("../dist/services/audio-files");
 const { getAudioFormat, downloadDisposition } = require("../dist/utils/audio-format");
+const { isXAccelEnabled, sendAccelRedirect } = require("../dist/utils/x-accel");
 
 async function withDirectory(action) {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), "wavcloud-server-test-"));
@@ -93,4 +94,28 @@ test("download advertises the source file's real audio format", () => {
     assert.deepEqual(getAudioFormat("song.flac"), { extension: ".flac", mime: "audio/flac" });
     assert.deepEqual(getAudioFormat("song.mp3"), { extension: ".mp3", mime: "audio/mpeg" });
     assert.match(downloadDisposition("song.flac", "한글 앨범"), /filename\*=UTF-8''[^;]+\.flac/);
+});
+
+test("x-accel helper builds encoded internal-media redirect headers", () => {
+    const previousAccel = process.env.USE_X_ACCEL;
+    const previousMusic = process.env.MUSIC_DIR;
+    try {
+        process.env.USE_X_ACCEL = "true";
+        process.env.MUSIC_DIR = path.resolve("/mnt/music");
+        assert.equal(isXAccelEnabled(), true);
+        const headers = {};
+        let sent = false;
+        const reply = {
+            header(name, value) { headers[name] = value; return this; },
+            send() { sent = true; return this; }
+        };
+        sendAccelRedirect(reply, path.join(process.env.MUSIC_DIR, "admin", "앨범", "곡.mp3"), "audio/mpeg", "attachment");
+        assert.equal(sent, true);
+        assert.equal(headers["X-Accel-Redirect"], "/internal-media/admin/%EC%95%A8%EB%B2%94/%EA%B3%A1.mp3");
+        assert.equal(headers["Content-Type"], "audio/mpeg");
+        assert.equal(headers["Content-Disposition"], "attachment");
+    } finally {
+        if (previousAccel === undefined) delete process.env.USE_X_ACCEL; else process.env.USE_X_ACCEL = previousAccel;
+        if (previousMusic === undefined) delete process.env.MUSIC_DIR; else process.env.MUSIC_DIR = previousMusic;
+    }
 });

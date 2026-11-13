@@ -5,6 +5,7 @@ const fsModule = require('fs');
 const metadataModule = require('../services/metadata');
 const authModule = require('../middleware/auth');
 const { getAudioFormat, downloadDisposition } = require('../utils/audio-format');
+const { isXAccelEnabled, sendAccelRedirect } = require('../utils/x-accel');
 async function downloadRoutes(fastify) {
   fastify.addHook('preHandler', authModule.authMiddleware);
   fastify.get('/:id', async (request, reply) => {
@@ -18,16 +19,8 @@ async function downloadRoutes(fastify) {
       const stat = await fsModule.promises.stat(track.filePath);
       const contentType = getAudioFormat(track.filePath).mime;
       const disposition = downloadDisposition(track.filePath, track.title);
-      if (process.env.USE_X_ACCEL === 'true') {
-        const path = require('path');
-        const musicDir = process.env.MUSIC_DIR || '/mnt/music';
-        const relativePath = path.relative(musicDir, track.filePath);
-        const encodedPath = relativePath.split(path.sep).map(encodeURIComponent).join('/');
-        return reply
-          .header('X-Accel-Redirect', `/internal-media/${encodedPath}`)
-          .header('Content-Type', contentType)
-          .header('Content-Disposition', disposition)
-          .send();
+      if (isXAccelEnabled()) {
+        return sendAccelRedirect(reply, track.filePath, contentType, disposition);
       }
       const stream = fsModule.createReadStream(track.filePath);
       return reply

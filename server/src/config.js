@@ -12,4 +12,8 @@ exports.config = {
   AUTH_PASSWORD: process.env.AUTH_PASSWORD || 'changeme',
   AUTH_TEST_USERNAME: process.env.AUTH_TEST_USERNAME || 'test',
   AUTH_TEST_PASSWORD: process.env.AUTH_TEST_PASSWORD || 'test1234',
+  CORS_ORIGINS: (process.env.CORS_ORIGINS || 'https://wavcloud.duckdns.org')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };
