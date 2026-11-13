@@ -26,6 +26,8 @@ function collision(filePath) {
 async function publishNoReplace(temporary, destination) {
   // Both paths are in the same directory. link() publishes without replacing an
   // existing file; rename() would silently overwrite one on Linux.
+  // Uploads start with 0o600 temp files; set 0o644 before linking so Nginx X-Accel-Redirect can read them.
+  await fs.chmod(temporary, 0o644);
   await fs.link(temporary, destination);
   await fs.unlink(temporary);
 }

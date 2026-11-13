@@ -74,6 +74,21 @@ test("upload never replaces an existing file and retains WAV if conversion fails
     });
 });
 
+test("upload publishes non-WAV files with world-readable 0644 permissions", async () => {
+    await withDirectory(async directory => {
+        const temporary = path.join(directory, ".upload.tmp");
+        const mp3 = path.join(directory, "track.mp3");
+        await fs.writeFile(temporary, "mp3 audio", { mode: 0o600 });
+        await fs.chmod(temporary, 0o600);
+        assert.equal(await publishUpload(temporary, mp3), mp3);
+        assert.equal(await fs.readFile(mp3, "utf8"), "mp3 audio");
+        if (process.platform !== "win32") {
+            const stat = await fs.stat(mp3);
+            assert.equal(stat.mode & 0o777, 0o644);
+        }
+    });
+});
+
 test("download advertises the source file's real audio format", () => {
     assert.deepEqual(getAudioFormat("song.flac"), { extension: ".flac", mime: "audio/flac" });
     assert.deepEqual(getAudioFormat("song.mp3"), { extension: ".mp3", mime: "audio/mpeg" });
