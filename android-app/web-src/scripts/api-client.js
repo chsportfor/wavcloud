@@ -105,9 +105,20 @@ class WavCloudApi {
       body: JSON.stringify({ category, album }),
     });
   }
-  uploadTrack(file, category, album, progress) {
+  uploadTrack(file, category, album, progress, signal) {
     return new Promise((resolve, reject) => {
+      if (signal && signal.aborted) {
+        const aborted = new Error('업로드가 취소되었습니다.');
+        aborted.aborted = true;
+        reject(aborted);
+        return;
+      }
       const request = new XMLHttpRequest();
+      const onAbort = () => request.abort();
+      if (signal) signal.addEventListener('abort', onAbort, { once: true });
+      const cleanup = () => {
+        if (signal) signal.removeEventListener('abort', onAbort);
+      };
       request.open('POST', `${B}/api/upload`);
       request.timeout = 15 * 60 * 1000;
       if (this.token) request.setRequestHeader('Authorization', `Bearer ${this.token}`);
@@ -115,6 +126,7 @@ class WavCloudApi {
         if (event.lengthComputable && progress) progress(event.loaded, event.total);
       };
       request.onload = () => {
+        cleanup();
         if (request.status === 401) {
           this.logout();
           window.location.reload();
@@ -124,14 +136,31 @@ class WavCloudApi {
         try {
           const body = JSON.parse(request.responseText);
           if (request.status >= 200 && request.status < 300) resolve(body);
-          else reject(new Error(body.error || '업로드에 실패했습니다.'));
+          else {
+            const error = new Error(body.error || '업로드에 실패했습니다.');
+            error.status = request.status;
+            reject(error);
+          }
         } catch {
-          reject(new Error('업로드 응답을 읽지 못했습니다.'));
+          const error = new Error('업로드 응답을 읽지 못했습니다.');
+          error.status = request.status;
+          reject(error);
         }
       };
-      request.onerror = () => reject(new Error('서버에 연결하지 못했습니다.'));
-      request.ontimeout = () => reject(new Error('업로드 시간이 초과되었습니다.'));
-      request.onabort = () => reject(new Error('업로드가 취소되었습니다.'));
+      request.onerror = () => {
+        cleanup();
+        reject(new Error('서버에 연결하지 못했습니다.'));
+      };
+      request.ontimeout = () => {
+        cleanup();
+        reject(new Error('업로드 시간이 초과되었습니다.'));
+      };
+      request.onabort = () => {
+        cleanup();
+        const aborted = new Error('업로드가 취소되었습니다.');
+        aborted.aborted = true;
+        reject(aborted);
+      };
       const body = new FormData();
       body.append('category', category);
       body.append('album', album);

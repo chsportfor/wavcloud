@@ -27,5 +27,6 @@ for (const unsafe of [
 assert.match(runtime, /uiEscapeHtml\(t\.name\)/);
 assert.match(runtime, /uiEscapeHtml\(r\.title\)/);
 assert.match(runtime, /uiEscapeHtml\(n\.title\)/);
-assert.match(runtime, /uiEscapeHtml\(u\.name\)/);
+assert.match(runtime, /nameSpan\.textContent = item\.file\.name/);
+assert.match(runtime, /errEl\.textContent = item\.error/);
 console.log('PASS: external metadata is escaped before dynamic HTML insertion');
