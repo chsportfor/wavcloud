@@ -34,7 +34,7 @@ assert.match(html,/cm_detail_track_order_/,'album track order must have its own 
 assert.match(html,/drag\.addEventListener\('pointerdown'/,'touch reordering must be enabled on the drag handle');
 assert.match(html,/if \(!context\) return this\.reorderLibraryTracks/,'global reorder behavior must stay separate from album detail ordering');
 assert.match(html,/\.player-view\{[^}]*overflow:hidden!important;[^}]*overscroll-behavior:none/,'the full-screen player must not become a scroll surface');
-assert.match(html,/\.player-art-container,\.player-art\{touch-action:none!important/,'cover gestures must not leak vertical scrolling to the player');
+assert.match(html,/\.player-art-container,\s*\.player-art\s*\{\s*touch-action:\s*none\s*!important/,'cover gestures must not leak vertical scrolling to the player');
 assert.match(html,/this\.el\.scrollTop = 0/,'opening the player must reset stale scroll position');
 assert.match(html,/WavCloudArtwork\.resolve/,'the Android artwork resolver must be used for high-resolution covers');
 assert.match(artworkBridge,/front-1200/,'the resolver must request 1200px Cover Art Archive images');
